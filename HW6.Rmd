@@ -1,0 +1,37 @@
+---
+title: "DATA 624 | Predictive Analytics"
+author: "Gabriella Martinez"
+date: "3/14/2022"
+output:
+      html_document:
+        toc: yes
+        toc_float: yes
+        theme: yeti
+        highlight: kate
+        font-family: "Arial"
+        code_folding: hide
+---
+
+# Homework 6: ARIMA
+## Instructions
+Do exercises  9.1, 9.2, 9.3, 9.5, 9.6, 9.7, 9.8  in [Forecasting: Principles and Practice](https://otexts.com/fpp3/).  Please submit both your Rpubs link as well as attach the .rmd file with your code.
+
+## Packages
+```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+library(fpp3)
+```
+
+## Exercises
+
+### 9.1
+Figure [9.32](https://otexts.com/fpp3/arima-exercises.html#fig:wnacfplus) shows the ACFs for 36 random numbers, 360 random numbers and 1,000 random numbers.
+
+a. Explain the differences among these figures. Do they all indicate that the data are white noise?
+b. Why are the critical values at different distances from the mean of zero? Why are the autocorrelations different in each figure when they each refer to white noise?
+
+
+
+
+<!------- Below is for removing excessive space in Rmarkdown | HTML formatting -------->
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>

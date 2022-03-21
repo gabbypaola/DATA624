@@ -1,0 +1,475 @@
+---
+title: "DATA 624 | Predictive Analytics"
+author: "Gabriella Martinez"
+date: "2/11/2022"
+output:
+      html_document:
+        toc: yes
+        toc_float: yes
+        theme: yeti
+        highlight: kate
+        font-family: "Arial"
+        code_folding: hide
+---
+
+# Homework 2: Decomposition
+## Instructions
+Do exercises 3.1, 3.2, 3.3, 3.4, 3.5, 3.7, 3.8 and 3.9 from [Forecasting: Principles and Practice](https://otexts.com/fpp3/) book. Please submit both your Rpubs link as well as attach the .rmd file with your code.
+
+## Packages
+```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+library(fpp3)
+library(latex2exp)
+library(forecast)
+library(seasonal)
+```
+
+
+## Exercises
+
+### 3.1
+Consider the GDP information in `global_economy`. Plot the GDP per capita for each country over time. Which country has the highest GDP per capita? How has this changed over time?
+
+```{r message=FALSE, warning=FALSE}
+global_economy %>%
+  autoplot(GDP/Population, show.legend =  FALSE) +
+    labs(title = "GDP per Capita",
+       subtitle = "1960-2017",
+       x = "Year",
+       y = "GDP per capita")
+```
+
+```{r message=FALSE, warning=FALSE}
+global_economy <- global_economy %>% 
+  mutate(GDP_per_capita = GDP/Population) 
+
+global_economy %>%
+  filter(GDP_per_capita > 100000) %>%
+  autoplot(GDP_per_capita) +
+  labs(title= "GDP per capita",
+       subtitle = "1960-2017",
+       y = "US Dollars")
+```
+
+```{r message=FALSE, warning=FALSE}
+arrange(global_economy, desc(GDP_per_capita))
+```
+
+### 3.2
+For each of the following series, make a graph of the data. If transforming seems appropriate, do so and describe the effect.
+
+-  United States GDP from `global_economy`.
+-  Slaughter of Victorian “Bulls, bullocks and steers” in `aus_livestock`.
+-  Victorian Electricity Demand from `vic_elec`.
+-  Gas production from `aus_production`.
+
+**United States GDP from** `global_economy`
+```{r message=FALSE, warning=FALSE}
+global_economy %>% 
+  filter(Country == "United States") %>% 
+  autoplot() +
+  labs(title= "United States GDP",
+       subtitle = "1960-2017",
+       y = "USD")
+```
+
+**Slaughter of Victorian “Bulls, bullocks and steers” in** `aus_livestock`.
+
+```{r message=FALSE, warning=FALSE}
+aus_livestock %>% 
+  filter(Animal == "Bulls, bullocks and steers",
+         State == "Victoria") %>% 
+  head()
+```
+
+```{r message=FALSE, warning=FALSE}
+aus_livestock %>% 
+  filter(Animal == "Bulls, bullocks and steers",
+         State == "Victoria") %>% 
+  autoplot() +
+  labs(title = "Victoria, AU Slaughters per month",
+       subtitle= "Bulls, bullocks and steers")
+```
+
+**Victorian Electricity Demand from** `vic_elec`.
+
+```{r message=FALSE, warning=FALSE}
+head(vic_elec)
+```
+
+```{r message=FALSE, warning=FALSE}
+autoplot(vic_elec)+
+    labs(title= "30 Minute Electricity Demand", 
+         subtitle= "Victoria, Australia",
+         y = "MW")
+```
+```{r message=FALSE, warning=FALSE}
+vic_elec %>%
+    index_by(Date) %>%
+    summarise(Demand = sum(Demand)) -> daily_demand
+
+daily_demand %>% autoplot(Demand) +
+    labs(title= "Daily Electricity Demand", 
+         subtitle= "Victoria, Australia",
+         y = "MW")
+```
+
+A calendar transformation to show aggregated daily amounts was most appropriate in this case in comparison to the original 30 minute data. The plot shows strong seasonality within each year with higher peaks in the first few months of each year and another smaller peak towards the middle of each year. The same conclusions can be drawn out of the 30 minute plot but this is a bit easier to see the true max and min points.
+
+**Gas production from** `aus_production`
+
+```{r message=FALSE, warning=FALSE}
+head(aus_production)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+autoplot(aus_production, Gas) +
+  labs(title= "Australian Gas Production")
+```
+
+```{r message=FALSE, warning=FALSE}
+lambda <- aus_production %>%
+  features(Gas, features = guerrero) %>%
+  pull(lambda_guerrero)
+aus_production %>%
+  autoplot(box_cox(Gas, lambda)) +
+  labs(y = "",
+       title= "Australian Gas Production",
+       subtitle = latex2exp::TeX(paste0(
+         "Transformed gas production with $\\lambda$ = ",
+         round(lambda,2))))
+```
+A transformation would be useful given that the data shows variation with the level of the series. Using the Guerrero feature, an optimal value of lambda = 0.12 was obtained. As seen above, the transformation has minimized the seasonal variation across the whole series and has provided an almost consistent amplitude throughout (except at about Q1 1970 where the amplitude is largest).
+
+### 3.3
+Why is a Box-Cox transformation unhelpful for the `canadian_gas` data?
+
+```{r message=FALSE, warning=FALSE}
+head(canadian_gas)
+```
+
+
+```{r}
+autoplot(canadian_gas, .vars = Volume)  +
+  geom_line() +
+  geom_hline(yintercept = mean(canadian_gas$Volume), color="blue")
+```
+
+
+```{r}
+canadian_gas%>%
+  summarise(Volume = sum(Volume)) %>% 
+  gg_subseries(Volume)
+```
+  
+In section 3.1, under Mathematical transformations, "If the data shows variation that increases or decreases with the level of the series, then mathematical transformation" such as a Box-Cox transformation "can be useful." Based on the above, it doesn't look like the variation increases/decreases with the level of the series.  
+
+Key term/phrase: "level of a series"  
+Definition: Level of a series refers to the average value in the series.^[https://machinelearningmastery.com/decompose-time-series-data-trend-seasonality/] ^[https://otexts.com/fpp3/subseries.html]
+
+
+### 3.4
+What Box-Cox transformation would you select for your retail data (from Exercise 8 in Section 2.10)?
+
+```{r message=FALSE, warning=FALSE}
+set.seed(555)
+
+myseries <- aus_retail %>%
+  filter(`Series ID` == sample(aus_retail$`Series ID`,1))
+
+head(myseries)
+```
+
+```{r message=FALSE, warning=FALSE}
+autoplot(myseries, .vars = Turnover) +
+  labs(title= "Western Australia Department Store Turnover in Million AU Dollars",
+       subtitle = "April 1982 - December 2018")
+```
+
+```{r message=FALSE, warning=FALSE}
+gg_subseries(myseries, y = Turnover) +
+  labs(title= "Western Australia Department Store Turnover in Million AU Dollars",
+       subtitle = "Seasonal Subseries")
+```
+
+```{r}
+lambda <- myseries %>%
+  features(Turnover, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+myseries %>%
+  autoplot(box_cox(Turnover, lambda)) +
+  labs(y = "", title= "Western Australia Department Store Turnover in Million AU Dollars",
+       subtitle = latex2exp::TeX(paste0(
+         "Transformed turnover with $\\lambda$ = ",
+         round(lambda,2))))
+```
+
+The above shows the transformed retail turn over for the series ID `A3349434X` with the $\lambda$ parameter of 0.02 chosen using the Guerrero method. The transformation shows a more tamed and consistent amplitude in Turnover throughout in comparison to the original plot of the Turnover.
+
+
+### 3.5
+For the following series, find an appropriate Box-Cox transformation in order to stabilize the variance.  
+
++ Tobacco from `aus_production`  
++ Economy class passengers between Melbourne and Sydney from `ansett`  
++ Pedestrian counts at Southern Cross Station from `pedestrian`
+
+**Tobacco from** `aus_production`
+
+```{r}
+head(aus_production)
+```
+
+```{r message=FALSE, warning=FALSE}
+autoplot(aus_production, (Tobacco)) +
+  labs(title = "Tobacco Production")
+```
+```{r message=FALSE, warning=FALSE}
+aus_tobacco <- aus_production %>% 
+  select(Quarter, Tobacco)
+
+lambda <- aus_tobacco %>%
+  features(Tobacco, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+aus_tobacco %>%
+  autoplot(box_cox(Tobacco, lambda)) +
+  labs(y = "",
+       title = latex2exp::TeX(paste0(
+         "Transformed Tobacco Production with $\\lambda$ = ",
+         round(lambda,2))))
+```
+
+Given our $\lambda$ is near 1 with value of 0.93, there is no substantive transformation resulting from the Box-Cox transformation.^[https://robjhyndman.com/eindhoven/2-2-Transformations.pdf]
+
+**Economy class passengers between Melbourne and Sydney from** `ansett`
+
+```{r}
+head(ansett)
+```
+
+```{r}
+unique(ansett$Airports)
+```
+
+```{r}
+econ_mel <- ansett %>% 
+  filter(Airports == "MEL-SYD",
+         Class == "Economy")
+```
+
+```{r}
+autoplot(econ_mel) +
+  labs(title= "Weekly Economy class passengers between Melbourne and Sydney",
+       subtitle = "1987 - 1992")
+```
+
+```{r}
+lambda <- econ_mel %>%
+  features(Passengers, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+econ_mel %>%
+  autoplot(box_cox(Passengers, lambda)) +
+  labs(y = "",
+       title= "Weekly Economy class passengers between Melbourne and Sydney",
+       subtitle = latex2exp::TeX(paste0(
+         "Transformed Passenger counts with $\\lambda$ = ",
+         round(lambda,2))))
+```
+
+**Pedestrian counts at Southern Cross Station from** `pedestrian`
+
+```{r}
+head(pedestrian)
+```
+
+View unique `Sensor` categories:
+```{r}
+unique(pedestrian$Sensor)
+```
+
+```{r}
+scs_pedestrian <- pedestrian %>%
+  filter(Sensor == "Southern Cross Station")
+```
+
+```{r}
+autoplot(scs_pedestrian, Count) +
+  labs(y = "Pedestrian Count",
+         title = "Hourly Pedestrian counts at Southern Cross Station")
+```
+
+```{r}
+#compute lambda
+lambda_scs <- scs_pedestrian %>%
+  features(Count, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+#plot
+scs_pedestrian %>%
+  autoplot(box_cox(Count, lambda_scs)) +
+  labs(y = "Transformed Pedestrian Counts",
+       title = latex2exp::TeX(paste0(
+         "Hourly Pedestrian counts at Southern Cross Station with $\\lambda$ = ",
+         round(lambda_scs,2))))
+```
+
+
+### 3.7
+Consider the last five years of the Gas data from `aus_production`.
+```{r message=FALSE, warning=FALSE}
+gas <- tail(aus_production, 5*4) %>% select(Gas)
+```
+
+a.  Plot the time series. Can you identify seasonal fluctuations and/or a trend-cycle?  
+
+
+```{r message=FALSE, warning=FALSE}
+head(gas)
+```
+
+```{r message=FALSE, warning=FALSE}
+autoplot(gas, Gas)+
+  labs(title = "Quarterly Australian Gas Production",
+       subtitle = "Q3 2005 - Q2 2010")
+```
+  
+```{r message=FALSE, warning=FALSE}
+gas %>% 
+  gg_subseries(Gas) +
+  labs(title = "Quarterly Australian Gas Production",
+       subtitle = "Subseries Plot")
+```
+  
+Based on the above, there is a clear increasing trend. There is also a strong seasonal pattern with highest peaks. The sub-plot reveals consistent increases for all Q1s and Q3s in the plot whereas Q2 and Q4 show decreases in each. 
+
+b.  Use `classical_decomposition` with `type=multiplicative` to calculate the trend-cycle and seasonal indices.  
+
+```{r message=FALSE, warning=FALSE}
+gas %>%
+  model(classical_decomposition(Gas, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  labs(title = "Classical multiplicative decomposition of total AU Gas Production")
+```
+
+c.  Do the results support the graphical interpretation from part a?  
+Yes, the results support the initial findings noted in part a. 
+
+d.  Compute and plot the seasonally adjusted data.  
+
+```{r message=FALSE, warning=FALSE}
+#computation
+decomp <- gas %>% 
+  model(stl= STL(Gas))
+
+#plot
+components(decomp) %>% as_tsibble() %>%
+  autoplot(Gas, colour = "gray", colour = "Data") +
+  geom_line(aes(y=season_adjust), colour = "#0072B2") +
+   labs(y = "Gas Production",
+       title = "Seasonally Adjusted AU Gas Production")
+```
+
+Seasonally adjusted gas production data (blue) and the original data (grey).
+
+e.  Change one observation to be an outlier (e.g., add 300 to one observation), and recompute the seasonally adjusted data. What is the effect of the outlier?  
+
+```{r message=FALSE, warning=FALSE}
+#change one observation to be an outlier
+gas_outlier <- gas
+gas_outlier$Gas[20] <- gas_outlier$Gas[20] + 1000
+
+#recompute the seasonally adjusted data
+
+# STL decomposition
+dcmp <- gas_outlier %>%
+  model(stl = STL(Gas))
+
+#Compute and plot the seasonally adjusted data
+components(dcmp) %>%
+  as_tsibble() %>%
+  autoplot(Gas, colour = "gray") +
+  geom_line(aes(y=season_adjust), colour = "#0072B2") +
+  labs(y = "Gas Production",
+       title = "Seasonaly Adjusted Australian Gas Production",
+       subtitle = "Purposely skewed with one outlier")
+```
+
+```{r message=FALSE, warning=FALSE}
+components(dcmp) %>%
+  as_tsibble() %>% 
+gg_subseries(y = Gas) +
+  labs(y = "Gas Production",
+       title = "Seasonaly Adjusted Australian Gas Production",
+       subtitle = "Purposely skewed with one outlier")
+```
+
+
+The addition of the outlier at the very end has a great impact on the seasonally adjusted and original data. The outlier changed the trend from increasing to a static, non-existing trend and changed the level of the series at Q2 where the series ends.
+
+f.  Does it make any difference if the outlier is near the end rather than in the middle of the time series?
+
+```{r message=FALSE, warning=FALSE}
+#change one observation to be an outlier
+gas_outlier_2 <- gas
+gas_outlier_2$Gas[10] <- gas_outlier_2$Gas[10] + 1000
+
+#recompute the seasonally adjusted data
+
+# STL decomposition
+dcmp_2 <- gas_outlier_2 %>%
+  model(stl = STL(Gas))
+
+#Compute and plot the seasonally adjusted data
+components(dcmp_2) %>%
+  as_tsibble() %>%
+  autoplot(Gas, colour = "gray") +
+  geom_line(aes(y=season_adjust), colour = "#0072B2") +
+  labs(y = "Gas Production",
+       title = "Seasonally Adjusted Australian Gas Production",
+       subtitle = "Purposely skewed with one outlier")
+```
+
+Adding the outlier to the end vs. adding it to the middle of the series have small difference from one another. The outlier in both cases eliminates the original increasing trend shown in 3.7.d. Adding the outlier at the end vs in the middle creates a different over all shape of the data. Adding the outlier in the middle shows flat lines and deep troughs falling below far below 125 close to 0 whereas the troughs with the outlier at the end don't seem to fall past 125.
+
+### 3.8
+Recall your retail time series data (from Exercise 8 in Section 2.10). Decompose the series using X-11. Does it reveal any outliers, or unusual features that you had not noticed previously?
+
+```{r message=FALSE, warning=FALSE}
+x11_dcmp <- myseries %>%
+  model(x11 = X_13ARIMA_SEATS(Turnover ~ x11())) %>%
+  components()
+autoplot(x11_dcmp)+
+  labs(title =
+    "Decomposition of Australian Department Stores Turnover using X-11.")
+```
+  
+An unusual feature or outlier can be noted in the `irregular` component around the year 2000 with a significant downward spike. The component doesn't seem like it can be attributed to a trend although there are other less significant downward and upward spikes throughout the `irregular` component at varying points in time.
+
+
+### 3.9
+Figures [3.19](https://otexts.com/fpp3/decomposition-exercises.html#fig:labour) and [3.20](https://otexts.com/fpp3/decomposition-exercises.html#fig:labour2) show the result of decomposing the number of persons in the civilian labour force in Australia each month from February 1978 to August 1995.  
+
+a.  Write about 3–5 sentences describing the results of the decomposition. Pay particular attention to the scales of the graphs in making your interpretation.  
+-  The scales of the `value` and `trend` plots range from about 6500 to 9000
+-  The scale of the `season_year` plot ranges from -100 to 100
+-  The scale of the `remainder` plot range from -400 to 100 with the maximum value between 50 and 100. This value represents how many people either entered (+) or exited (-) the labour force.
+
+-  As expected from the `value` plot, there is an increasing trend in the `trend` subplot
+-  The `season_year` plot does not show a fixed seasonality for the data and shows the greatest change in seasonality between 1987 to 1990 
+-  The `remainder` plot captures the randomness left over after the `trend` and `season_year` components are extracted. It most notably shows the variation noted in the `value` plot for years around 1991 and 1992. The stark dips or troughs in `remainder` show that there were two major instances where the labour force decreased significantly, once with a decrease of about 400 and another decrease of about 350 which were almost back to back.
+- Immediately before the largest dip at -400, there was another dip at -200 which may have been a preview of what was about to happen with the next and largest decrease. Between the decrease of 400 and 350, there was an increase of up to around 50 which may be attributed to holidays and the need for workers back in the the workforce to meet demands. 
+
+
+b.  Is the recession of 1991/1992 visible in the estimated components?  
+Yes, the recession is visible in the estimated components as noted above.
+
+## References
+
+<!------- Below is for removing excessive space in Rmarkdown | HTML formatting -------->
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>

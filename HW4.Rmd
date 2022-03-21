@@ -1,0 +1,178 @@
+---
+title: "DATA 624 | Predictive Analytics"
+author: "Gabriella Martinez"
+date: "2/28/2022"
+output:
+      html_document:
+        toc: yes
+        toc_float: yes
+        theme: yeti
+        highlight: kate
+        font-family: "Arial"
+        code_folding: hide
+---
+
+# Homework 4: Data Preprocessing/Overfitting
+## Instructions
+Do exercises 3.1 and 3.2 in the Kuhn and Johnson book Applied Predictive Modeling book. Please submit both your Rpubs link as well as attach the .rmd file with your code.
+
+## Packages
+```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+library(mlbench)
+library(ggplot2)
+library(reshape2)
+library(corrplot)
+library(dplyr)
+library(Amelia)
+library(inspectdf)
+library(ggcorrplot)
+library(naniar)
+```
+
+## Exercises
+
+### 3.1
+**The [UC Irvine Machine Learning Repository](https://archive.ics.uci.edu/ml/index.php) contains a data set related
+to [glass identification](https://archive.ics.uci.edu/ml/datasets/glass+identification). The data consist of 214 glass samples labeled as one
+of seven class categories. There are nine predictors, including the refractive
+index and percentages of eight elements: Na, Mg, Al, Si, K, Ca, Ba, and Fe.**  
+
+**The data can be accessed via:**
+
+```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+data(Glass)
+str(Glass)
+```
+
+**a.  Using visualizations, explore the predictor variables to understand their
+distributions as well as the relationships between predictors.**  
+
+```{r}
+missmap(Glass)
+```
+
+```{r message=FALSE, warning=FALSE}
+#convert from wide to long
+melt.glass <- melt(Glass)
+
+#plot values
+ggplot(data = melt.glass, aes(x = value)) + 
+stat_density() + 
+facet_wrap(~variable, scales = "free")+
+  labs(title= "Distributions of Predictor Variables")+
+  theme_minimal()
+```
+
+- RI: right skewed, multi-modal
+- Na: almost normal, slightly right skewed with outliers
+- Mg: left skewed, bi-modal
+- Al: right skewed with outliers
+- Si: slightly left skewed
+- K:  bi-modal right skewed distribution with high concentration of points between 0 and 1
+- Ca: right skewed, multi-moodal
+- Ba: right skewed
+- Fe: right skewed
+
+```{r}
+#levels(Glass$Type)
+
+ggplot(Glass, aes(Type)) +
+  geom_bar()+
+  theme_minimal()+
+  labs(title = "Distribution of the Categorical Response Variable: Type",
+       subtitle = "Types 2 and 1 have the highest frequency")
+```
+
+
+```{r fig.height=8}
+#correlation plot & values
+numeric_values <- Glass %>% select_if(is.numeric)
+train_cor <- cor(numeric_values)
+corrplot.mixed(train_cor, tl.col = 'black', tl.pos = 'lt', 
+               title="Correlation between Predictor Variables",
+              mar=c(0,0,2,0))
+```
+
+Using a correlation plot to look into the relationship between variables, we note that multicollinearity is a concern. Two of our predictor variables, RI and Ca, exhibit a high correlation to one another with a correlation coefficient of 0.81. Ba and Al (0.48), Al and K (0.33), Ba and Na (0.33) have positive correlations. Si and RI (0.54) have a strong negative correlation. Ba and Mg (-0.49), Mg and Al (-0.48), Ca and Mg (-0.44), and Al and RI (-0.41) have negative correlations. The majority of the remainder have slight / less noteworthy correlations.
+
+
+**b.  Do there appear to be any outliers in the data? Are any predictors skewed?**  
+
+Yes, a majority of the variables contain outliers and are skewed as noted above.
+
+**c.  Are there any relevant transformations of one or more predictors that
+might improve the classification model?**  
+
+- Variables with heavier right skews such as Ba, Fe, and K might benefit from a log transformation.
+- RI can potentially be removed given the multicolliniarity it is contributing to in the predictor variables.
+- Al, Ca, Na, and Si have nearly normal distributions. A normalization technique that could be used would be z score normalization to ensure we don't loose pertinent information from outliers in the data. 
+- Mg has a left skew and could potentially benefit from a square root transform.
+
+^[https://www.datanovia.com/en/lessons/transform-data-to-normal-distribution-in-r/] ^[https://www.pluralsight.com/guides/normalizing-data-r] ^[https://medium.com/@TheDataGyan/day-8-data-transformation-skewness-normalization-and-much-more-4c144d370e55] ^[https://www.analyticsvidhya.com/blog/2020/04/feature-scaling-machine-learning-normalization-standardization/]
+
+
+### 3.2
+**The soybean data can also be found at the UC Irvine Machine Learning
+Repository. Data were collected to predict disease in 683 soybeans. The 35 predictors are mostly categorical and include information on the environmental conditions (e.g., temperature, precipitation) and plant conditions (e.g., left spots, mold growth). The outcome labels consist of 19 distinct classes.**  
+
+**The data can be loaded via:**
+
+```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+data(Soybean)
+```
+
+**a.  Investigate the frequency distributions for the categorical predictors. Are there any [degenerate distributions](https://www.statisticshowto.com/degenerate-distribution/) in the ways discussed earlier in this
+chapter?**
+  
+The visual below tells us that all of our variables are factors, where 5 of which are ordered factors and the remaining 31 unordered.  
+    
+```{r message=FALSE, warning=FALSE}
+inspect_types(Soybean)  %>% show_plot()
+```
+  
+     
+ Using the visual below we see that the variable with a **degenerate distribution** is `mycelium`. Other variables also resembling a degenerate distribution are `leaves` and `sclerotia`.
+ 
+```{r message=FALSE, warning=FALSE}
+inspect_cat(Soybean) %>% show_plot()
+```
+
+^[https://www.littlemissdata.com/blog/inspectdf]
+
+
+**b.  Roughly 18 % of the data are missing. Are there particular predictors that
+are more likely to be missing? Is the pattern of missing data related to
+the classes?**
+
+Using the below, we see that there are four variables missing 17.7% of data which are `hail`, `server`, `seed.tmt`, and `lodging`. The next variable missing 16.4% of its data is the `germ` variable, followed by `leaf.mild` missing 15.8% of its data.
+
+The variables with the highest amount of levels are Class with 19 levels, and date with 7 levels.
+
+
+```{r message=FALSE, warning=FALSE}
+inspect_na(Soybean) %>% show_plot()
+```
+
+
+The plot below shows the number of missing values in each column, broken down by the `Class` categorical variable from the dataset. It is powered by a `dplyr::group_by()` statement followed by `miss_var_summary()`. Based on the below, we see a case of "informative missingness" where there are 5 classes with missing data. The classes `2-4-d-inujry`, `cyst-nematode`, `diaporthe-pod-&-stem-blight`, and `herbicide-injury` are missing close to 100% of the data across the other predictor variables and `phytophthora-rot` missing close to 75% of the data in its class.
+
+```{r message=FALSE, warning=FALSE}
+gg_miss_fct(x = Soybean, fct = Class)
+```
+^[https://cran.r-project.org/web/packages/naniar/vignettes/naniar-visualisation.html]
+
+
+**c.  Develop a strategy for handling missing data, either by eliminating predictors or imputation.** 
+ 
+Given the above, it looks like the missing data for certain levels of the predictor `Class` is meaningful. Only 5 of the 19 levels of the `Class` variable are missing and dropping the variable altogether would result in significant loss of potentially valuable information. As such, the predictor should not be removed and should be imputed instead. With regard to the type of imputation, the publication "Multiple imputation for categorical time series," ^[https://journals.sagepub.com/doi/pdf/10.1177/1536867X1601600303] suggests multiple imputation would be beneficial given the time series categorical nature of the data.  
+  
+[Multiple Imputation](http://dept.stat.lsa.umich.edu/~jerrick/courses/stat701/notes/mi.html) and [Getting Started with Multiple Imputation in R](https://data.library.virginia.edu/getting-started-with-multiple-imputation-in-r/) provide more information on doing multiple imputation in R.
+
+
+
+
+## References
+
+<!------- Below is for removing excessive space in Rmarkdown | HTML formatting -------->
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
