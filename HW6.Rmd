@@ -14,7 +14,7 @@ output:
 
 # Homework 6: ARIMA
 ## Instructions
-Do exercises  9.1, 9.2, 9.3, 9.5, 9.6, 9.7, 9.8  in [Forecasting: Principles and Practice](https://otexts.com/fpp3/).  Please submit both your Rpubs link as well as attach the .rmd file with your code.
+Do exercises  9.1, 9.2, 9.3, 9.5, 9.6, 9.7, 9.8  in [Forecasting: Principles and Practice](https://otexts.com/fpp3/). Please submit both your Rpubs link as well as attach the .rmd file with your code.
 
 ## Packages
 ```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
@@ -24,10 +24,158 @@ library(fpp3)
 ## Exercises
 
 ### 9.1
-Figure [9.32](https://otexts.com/fpp3/arima-exercises.html#fig:wnacfplus) shows the ACFs for 36 random numbers, 360 random numbers and 1,000 random numbers.
+**Figure [9.32](https://otexts.com/fpp3/arima-exercises.html#fig:wnacfplus) shows the ACFs for 36 random numbers, 360 random numbers and 1,000 random numbers.**
 
-a. Explain the differences among these figures. Do they all indicate that the data are white noise?
-b. Why are the critical values at different distances from the mean of zero? Why are the autocorrelations different in each figure when they each refer to white noise?
+![](C:\Users\gabri\OneDrive\Documents\CUNY SPS\DATA_624\DATA624\HW6pic1.png)
+
+**a. Explain the differences among these figures. Do they all indicate that the data are white noise?**  
+The correlations in each figure are not significantly different from zero since the peaks for each figure are all within the dashed blue lines. Each autocorreltaion function figure above suggests they are all white noise.
+
+**b. Why are the critical values at different distances from the mean of zero? Why are the autocorrelations different in each figure when they each refer to white noise?**  
+The critical values are at different distances from the mean of zero becuase the length of time, $T$ values are different for each. The formula for the critical values is $\pm 2/\sqrt{T}$, so as T increases, the crtical value deceases. The autocorrelations are different in each figure because the $T$ value is increasing thus decreasing the critical value area from left to right.
+
+### 9.2
+**A classic example of a non-stationary series are stock prices. Plot the daily closing prices for Amazon stock (contained in `gafa_stock`), along with the ACF and PACF. Explain how each plot shows that the series is non-stationary and should be differenced.**  
+
+```{r}
+#filter for amazon
+amzn <- gafa_stock %>% 
+  filter(Symbol == "AMZN")
+
+#plot the time series, acf, pacf
+amzn %>% 
+  gg_tsdisplay(Close, plot_type = 'partial') +
+  labs(title= "Daily Closing Prices",
+       subtitle= "Ticker: AMZN")
+```
+
+The Amazon Closing Price plot shows a changing levels, a general upward trend with no seasonality or cyclic behavior. Based on the ACF plot above, we see that there is no seasonal pattern with a small trailing negative trend towards the end. In the ACF plot we see the ACF slowly decreasing with very large, positive r values. 
+
+
+Differencing can help stabilize the mean of the Google Closing Price time series by removing changes in the level, and therefore eliminating (or reducing) the trend.
+
+```{r}
+#plot the time series, acf, pacf
+amzn %>% 
+  gg_tsdisplay(difference(Close), plot_type = 'partial') +
+  labs(title= "Differenced Daily Closing Prices",
+       subtitle= "Ticker: AMZN")
+```
+
+The ACF plot of the differenced Amazon Closing price is not autocorrelation.
+
+
+### 9.3
+**For the following series, find an appropriate Box-Cox transformation and order of differencing in order to obtain stationary data.**
+
+**a. Turkish GDP from `global_economy`.**  
+
+```{r message=FALSE, warning=FALSE}
+#filter out for turkey
+turkey <- global_economy %>% 
+  filter(Country=='Turkey') %>% 
+  select(Country, GDP)
+```
+
+```{r message=FALSE, warning=FALSE}
+#find lambda value
+lambda <- turkey %>%
+  features(GDP, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+turkey %>%
+  autoplot(box_cox(GDP, lambda)) +
+  labs(y = "",
+       title = latex2exp::TeX(paste0(
+         "Transformed Turkish GDP with $\\lambda$ = ",
+         round(lambda,2))))
+```
+
+```{r message=FALSE, warning=FALSE}
+turkey  %>%
+  mutate(GDP = box_cox(GDP, lambda)) %>%
+  features(GDP, unitroot_ndiffs)
+```
+
+
+**b. Accommodation takings in the state of Tasmania from `aus_accommodation`.**  
+
+```{r message=FALSE, warning=FALSE}
+#filter for tasmania
+tasmania <- aus_accommodation %>% 
+  filter(State == 'Tasmania')  %>%
+  select(State, Takings)
+
+#find lambda value
+lambda_tasmania <- tasmania %>%
+  features(Takings, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+#get ndiffs
+tasmania %>%
+  mutate(Takings = box_cox(Takings, lambda_tasmania)) %>%
+  features(Takings, unitroot_ndiffs) 
+```
+
+**c. Monthly sales from `souvenirs`.**
+
+```{r message=FALSE, warning=FALSE}
+#find lambda
+lambda_souvenirs <- souvenirs %>% 
+  features(Sales, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+#get ndiffs
+souvenirs %>%
+  mutate(Sales = box_cox(Sales, lambda_souvenirs)) %>%
+  features(Sales, unitroot_ndiffs)
+```
+
+
+
+### 9.5
+**For your retail data (from Exercise 8 in Section 2.10), find the appropriate order of differencing (after transformation if necessary) to obtain stationary data.**
+
+### 9.6
+**Simulate and plot some data from simple ARIMA models.**
+
+**a. Use the following R code to generate data from an AR(1) model with $\phi_{1} = 0.6$ and $\phi_{1} = 0.6$. The process starts with $y_1=0$.**  
+
+```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+y <- numeric(100)
+e <- rnorm(100)
+for(i in 2:100)
+  y[i] <- 0.6*y[i-1] + e[i]
+sim <- tsibble(idx = seq_len(100), y = y, index = idx)
+```
+
+**b. Produce a time plot for the series. How does the plot change as you change $\phi_1$?**  
+**c. Write your own code to generate data from an MA(1) model with $\theta_{1} = 0.6$ and $\sigma^2=1$.**  
+**d. Produce a time plot for the series. How does the plot change as you change $\theta_1$?**  
+**e. Generate data from an ARMA(1,1) model with $\phi_{1} = 0.6$, $\theta_1=0.6$, and $\sigma^2=1$.**  
+**f. Generate data from an AR(2) model with $\phi_1=-0.8$, $\phi_2=0.3$, and $\sigma^2$=1.  (Note that these parameters will give a non-stationary series.)**  
+**g. Graph the latter two series and compare them.**  
+
+
+### 9.7
+**Consider `aus_airpassengers`, the total number of passengers (in millions) from Australian air carriers for the period 1970-2011.**
+
+**a. Use `ARIMA()` to find an appropriate ARIMA model. What model was selected. Check that the residuals look like white noise. Plot forecasts for the next 10 periods.**  
+**b. Write the model in terms of the backshift operator.**  
+**c. Plot forecasts from an ARIMA(0,1,0) model with drift and compare these to part a.**  
+**d. Plot forecasts from an ARIMA(2,1,2) model with drift and compare these to parts a and c. Remove the constant and see what happens.**  
+**e. Plot forecasts from an ARIMA(0,2,1) model with a constant. What happens?**  
+
+
+### 9.8
+**For the United States GDP series (from global_economy):**
+
+**if necessary, find a suitable Box-Cox transformation for the data;**
+**fit a suitable ARIMA model to the transformed data using ARIMA();**
+**try some other plausible models by experimenting with the orders chosen;**
+**choose what you think is the best model and check the residual diagnostics;**
+**produce forecasts of your fitted model. Do the forecasts look reasonable?**
+**compare the results with what you would obtain using ETS() (with no transformation).**
 
 
 
