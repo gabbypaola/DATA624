@@ -39,7 +39,7 @@ The critical values are at different distances from the mean of zero becuase the
 ### 9.2
 **A classic example of a non-stationary series are stock prices. Plot the daily closing prices for Amazon stock (contained in `gafa_stock`), along with the ACF and PACF. Explain how each plot shows that the series is non-stationary and should be differenced.**  
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #filter for amazon
 amzn <- gafa_stock %>% 
   filter(Symbol == "AMZN")
@@ -56,7 +56,7 @@ The Amazon Closing Price plot shows a changing levels, a general upward trend wi
 
 Differencing can help stabilize the mean of the Google Closing Price time series by removing changes in the level, and therefore eliminating (or reducing) the trend.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #plot the time series, acf, pacf
 amzn %>% 
   gg_tsdisplay(difference(Close), plot_type = 'partial') +
@@ -231,7 +231,7 @@ plt4 <- sim_4 %>% autoplot(y) +
 ggarrange(plt1, plt2, plt3, plt4, ncol = 2, nrow = 2)
 ```
 
-The wavelength of the time series changes as $\phi_{1}$ changes. As $\phi_{1}$ increases, the magnitude and wavelength increases and as $\phi_{1}$ decreases, so does the magnitude and wavelength.
+The wavelength of the time series changes as $\phi_{1}$ changes. As $\phi_{1}$ increases, the magnitude and wavelength increases and as $\phi_{1}$ decreases, so does the magnitude and wavelength for values between 0 and 1. For values less than 0, the wavelength is shorter noting higher frequency with varying amplitudes. For $\phi$ values greater than 1, the plot resembles the exponential function $e^x$.
 
 **c. Write your own code to generate data from an MA(1) model with $\theta_{1} = 0.6$ and $\sigma^2=1$.**  
 
@@ -284,6 +284,8 @@ plt8 <- sim_ma5 %>% autoplot(y)+
 ggarrange(plt5, plt6, plt7, plt8, ncol = 2, nrow = 2)
 ```
 
+As $\theta$ changes, the plots do not display dramatic changes in shape. All plots show steady variance and suggest the series are stationary. The minimum and maximum amplitude changes with little to no shifts in wavelengths.
+
 **e. Generate data from an ARMA(1,1) model with $\phi_{1} = 0.6$, $\theta_1=0.6$, and $\sigma^2=1$.**  
 ```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
 for(i in 2:100)
@@ -311,6 +313,7 @@ plt10 <- sim_ma5 %>% autoplot(y)+
 ggarrange(plt9, plt10, ncol = 1, nrow = 2)
 ```
 
+The wavelength for `ARMA(1,1)` is slightly wider, the amplitude has minimum and maximum values around $\pm 3$, and has slight steady variance throughout the index range. The wavelength for `AR(2)` is narrower, has slightly larger amplitudes with minimum and maximum values around $\pm 5$ and has a steady variance.
 
 ### 9.7
 **Consider `aus_airpassengers`, the total number of passengers (in millions) from Australian air carriers for the period 1970-2011.**
@@ -348,7 +351,9 @@ fit %>% gg_tsresiduals() +
 
 Using the `ARIMA()` function, the model automatically selected for `aus_airpassengers` data the was an ARIMA(0,2,1). The output of the `gg_tsresiduals()` function confirms that the residuals are white noise.
 
-**b. Write the model in terms of the backshift operator.**    
+**b. Write the model in terms of the backshift operator.**  
+
+$y_t = -0.8963 * \epsilon_{t-1} + \epsilon_{t}$
 
 **c. Plot forecasts from an ARIMA(0,1,0) model with drift and compare these to part a.**   
 ```{r}
@@ -358,10 +363,15 @@ fit2 <- aus_airpassengers %>%
 
 #plot forecast
 fit2 %>% forecast(h=10) %>%
-  autoplot(aus_airpassengers)
+  autoplot(aus_airpassengers) +
+  labs(y = "Millions of Passengers", 
+       title = "Australian Air Passengers",
+       subtitle = "10 Year Forecast")
 
 #plot residuals
-fit2 %>% gg_tsresiduals()
+fit2 %>% gg_tsresiduals() +
+  labs(title = "Australian Air Passengers",
+       subtitle = "10 Year Forecast")
 ```
 
 
@@ -379,45 +389,132 @@ report(fit3)
 
 
 **e. Plot forecasts from an ARIMA(0,2,1) model with a constant. What happens?**  
+
 The automated model generated in 9.7.a is an `ARIMA(0,2,1)` model.
 
 ### 9.8
 **For the United States GDP series (from `global_economy`):**
 
-**if necessary, find a suitable Box-Cox transformation for the data;**
+**a. if necessary, find a suitable Box-Cox transformation for the data;**
 
-```{r}
+The variation doesn't seem to increase or decrease with the level of the series, so a transformation isn't necessary. 
+```{r message=FALSE, warning=FALSE}
 us_gdp <- global_economy %>% 
   filter(Country=="United States")%>%
   select(Country, GDP)
 
-lambda_gdp <- us_gdp %>%
-  features(GDP, features = guerrero) %>%
-  pull(lambda_guerrero)
-
-us_gdp <- us_gdp %>%
-  mutate(GDP = box_cox(GDP, lambda_gdp))
+us_gdp %>% autoplot(GDP) +
+  labs(title = "United States GDP")
 ```
 
-**fit a suitable ARIMA model to the transformed data using ARIMA();**
+**b. fit a suitable ARIMA model to the transformed data using ARIMA();**
 ```{r}
 fit <- us_gdp %>%
   model(
-    arima = ARIMA(GDP, stepwise = FALSE, approx = FALSE)
-  )
+    arima = ARIMA(GDP, stepwise = FALSE, approx = FALSE))
+
 report(fit)
 ```
 
-**try some other plausible models by experimenting with the orders chosen;**
+Using the `ARIMA()` function, `ARIMA(0,2,2)` was found to be the best fit.
+
+**c. try some other plausible models by experimenting with the orders chosen;**
 ```{r}
 us_gdp %>%
   features(GDP, unitroot_ndiffs)
+
+us_gdp %>%
+  gg_tsdisplay(GDP, plot_type = 'partial') +
+  labs(title = "United States GDP")
+```
+
+Using part b. and the output of the `features` function, the p and q values for the `ARIMA()` model are altered below.
+
+```{r}
+#p=2
+fit_p2 <- us_gdp %>%
+  model(ARIMA(GDP ~ pdq(2,2,2)))
+
+report(fit_p2)
+```
+
+```{r}
+#p=1
+fit_p1 <- us_gdp %>%
+  model(ARIMA(GDP ~ pdq(1,2,2)))
+
+report(fit_p1)
+```
+
+Changing the p value from 2 to 1 increases each metric, AIC, AICc, and the BIC.
+
+
+```{r}
+#q=0
+fit_q0 <- us_gdp %>%
+  model(ARIMA(GDP ~ pdq(2,2,0)))
+
+report(fit_q0)
 ```
 
 
-**choose what you think is the best model and check the residual diagnostics;**
-**produce forecasts of your fitted model. Do the forecasts look reasonable?**
-**compare the results with what you would obtain using ETS() (with no transformation).**
+```{r}
+#q = 1
+fit_q1 <- us_gdp %>%
+  model(ARIMA(GDP ~ pdq(2,2,1)))
+
+report(fit_q1)
+```
+
+Changing the q value from 2 to 1 increased each AIC, AICc, and BIC values; decreasing from 1 to 0 further decreased the metrics as well. This leaves the 2,2,2 as the optimal value of the combinations atempted.
+
+**d. choose what you think is the best model and check the residual diagnostics;**  
+
+Based on the AICc value, the best performing model is that of `ARIMA(2,2,2)` with AICc=3053.47.
+```{r}
+fit_p2 %>% gg_tsresiduals() +
+  labs(title = "United States GDP 10 Year Forecast",
+       subtitle = "ARIMA(2,2,2)")
+```
+
+The residual plot above shows a left skew distribution and the ACF plot resembles white noise.
+
+**e. produce forecasts of your fitted model. Do the forecasts look reasonable?**
+```{r}
+fit_p2 %>% forecast(h=10) %>%
+  autoplot(us_gdp) +
+  labs(title = "United States GDP 10 Year Forecast",
+       subtitle = "ARIMA(2,2,2)")
+```
+
+Yes, the forecast looks reasonable considering the previous data and the 
+
+**f. compare the results with what you would obtain using ETS() (with no transformation).**
+
+```{r}
+fit_ets <- us_gdp %>% 
+  model(ETS(GDP))
+
+report(fit_ets)
+```
+
+```{r}
+fit_ets %>% forecast(h = 10) %>%
+  autoplot(us_gdp) +
+  labs(title = "United States GDP 10 Year Forecast",
+       subtitle = "ETS(M,A,N)")
+```
+
+```{r}
+fit_ets %>% gg_tsresiduals()  +
+  labs(title = "United States GDP 10 Year Forecast",
+       subtitle = "ETS(M,A,N)")
+```
+
+`ARIMA(2,2,2)` model: AICc = 3053.47  
+`ETS(M,A,N)` model  : AICc = 3191.941
+
+The ACF plots for each have a lack of correlation, suggesting both forecasts are good. Comparing the AICc values for each, the `ARIMA(2,2,2)` is the better performing model.
 
 
 
