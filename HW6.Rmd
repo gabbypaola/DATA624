@@ -19,6 +19,8 @@ Do exercises  9.1, 9.2, 9.3, 9.5, 9.6, 9.7, 9.8  in [Forecasting: Principles and
 ## Packages
 ```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
 library(fpp3)
+library(latex2exp)
+library(ggpubr)
 ```
 
 ## Exercises
@@ -75,27 +77,19 @@ The ACF plot of the differenced Amazon Closing price is not autocorrelation.
 turkey <- global_economy %>% 
   filter(Country=='Turkey') %>% 
   select(Country, GDP)
-```
 
-```{r message=FALSE, warning=FALSE}
 #find lambda value
 lambda <- turkey %>%
   features(GDP, features = guerrero) %>%
   pull(lambda_guerrero)
 
-turkey %>%
-  autoplot(box_cox(GDP, lambda)) +
-  labs(y = "",
-       title = latex2exp::TeX(paste0(
-         "Transformed Turkish GDP with $\\lambda$ = ",
-         round(lambda,2))))
-```
-
-```{r message=FALSE, warning=FALSE}
+#find ndiffs 
 turkey  %>%
   mutate(GDP = box_cox(GDP, lambda)) %>%
   features(GDP, unitroot_ndiffs)
 ```
+
+For the Turkish GDP from `global_economy`, we find an appropriate Box-Cox transformation with a lambda of approximately 0.16. With respect to the differencing, using the `features` function we find the number of differences in order to obtain stationary data as one difference. 
 
 
 **b. Accommodation takings in the state of Tasmania from `aus_accommodation`.**  
@@ -117,6 +111,8 @@ tasmania %>%
   features(Takings, unitroot_ndiffs) 
 ```
 
+For the Accommodation takings in the state of Tasmania from `aus_accommodation`, we find an appropriate Box-Cox transformation with a lambda of approximately -0.05. With respect to the differencing, using the `features` function we find the number of differences in order to obtain stationary data as one difference.
+
 **c. Monthly sales from `souvenirs`.**
 
 ```{r message=FALSE, warning=FALSE}
@@ -131,48 +127,294 @@ souvenirs %>%
   features(Sales, unitroot_ndiffs)
 ```
 
+For the Monthly sales from `souvenirs`, we find an appropriate Box-Cox transformation with a lambda of approximately 0.002. With respect to the differencing, using the `features` function we find the number of differences in order to obtain stationary data as one difference.
 
 
 ### 9.5
 **For your retail data (from Exercise 8 in Section 2.10), find the appropriate order of differencing (after transformation if necessary) to obtain stationary data.**
 
+```{r}
+set.seed(555)
+
+myseries <- aus_retail %>%
+  filter(`Series ID` == sample(aus_retail$`Series ID`,1))
+
+myseries %>%
+    gg_tsdisplay(Turnover, plot_type = 'partial', lag_max = 36) +
+  labs(title= "Western Australia Turnover",
+       subtitle="Industry: Department Stores", y = NULL)
+```
+
+
+```{r}
+myseries %>% 
+  transmute(
+    `Turnover` = Turnover,
+    `Log Turnover` = log(Turnover),
+    `Annual Change Log Turnover` = difference(log(Turnover), 12),
+        `Doubly differenced log Turnover` =
+                     difference(difference(log(Turnover), 12), 1)
+  )%>%
+  pivot_longer(-Month, names_to="Type", values_to="Turnover") %>%
+  mutate(
+    Type = factor(Type, levels = c(
+      "Turnover",
+      "Log Turnover",
+      "Annual Change Log Turnover",
+      "Doubly differenced log Turnover"))
+  ) %>%
+  ggplot(aes(x = Month, y = Turnover)) +
+  geom_line() +
+  facet_grid(vars(Type), scales = "free_y") +
+  labs(title= "Western Australia Turnover",
+       subtitle="Industry: Department Stores", y = NULL)
+```
+
+A stationary series has no predictable patterns in the long term, with no trend and seasonality. There appears to be an increasing trend and strong seasonal pattern that increases in size as the level of the series increases. 
+
+In order to stabilize the variance of the time series, a log transformation was taken. After the log was taken the variance was tamed, but the increasing trend is still an issue. The seasonally differenced data of the log transformation is reasonably stabilized, but is not completely stationary as such another round of differencing was performed.
+
+
 ### 9.6
 **Simulate and plot some data from simple ARIMA models.**
 
-**a. Use the following R code to generate data from an AR(1) model with $\phi_{1} = 0.6$ and $\phi_{1} = 0.6$. The process starts with $y_1=0$.**  
+**a. Use the following R code to generate data from an AR(1) model with $\phi_{1} = 0.6$ and $\sigma^2 = 1$. The process starts with $y_1=0$.**  
 
 ```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+#set.seed(1)
+
 y <- numeric(100)
 e <- rnorm(100)
 for(i in 2:100)
   y[i] <- 0.6*y[i-1] + e[i]
 sim <- tsibble(idx = seq_len(100), y = y, index = idx)
+
+head(sim)
 ```
 
 **b. Produce a time plot for the series. How does the plot change as you change $\phi_1$?**  
+```{r}
+sim %>% autoplot(y) +
+  labs(title=  latex2exp::TeX(paste0("AR(1) model with $\\phi_{1}$ = 0.6, $\\sigma^2 = 1$, $y_1=0$")))
+```
+
+
+```{r}
+#create the data
+for(i in 2:100)
+  y[i] <- 0.1*y[i-1] + e[i]
+sim_2 <- tsibble(idx = seq_len(100), y = y, index = idx)
+
+for(i in 2:100)
+  y[i] <- -1.0*y[i-1] + e[i]
+sim_3 <- tsibble(idx = seq_len(100), y = y, index = idx)
+
+for(i in 2:100)
+  y[i] <- 1.2*y[i-1] + e[i]
+sim_4 <- tsibble(idx = seq_len(100), y = y, index = idx)
+
+for(i in 2:100)
+  y[i] <- .9*y[i-1] + e[i]
+sim_5 <- tsibble(idx = seq_len(100), y = y, index = idx)
+
+#generate the ggplot objects
+plt1 <- sim_5 %>% autoplot(y) +
+  labs(title=  latex2exp::TeX(paste0("AR(1) model with $\\phi_{1}$ = 0.9, $\\sigma^2 = 1$")))
+plt2 <- sim_2 %>% autoplot(y) +
+  labs(title=  latex2exp::TeX(paste0("AR(1) model with $\\phi_{1}$ = 0.1, $\\sigma^2 = 1$")))
+plt3 <- sim_3 %>% autoplot(y) +
+  labs(title=  latex2exp::TeX(paste0("AR(1) model with $\\phi_{1}$ = -1.0, $\\sigma^2 = 1$")))
+plt4 <- sim_4 %>% autoplot(y) +
+  labs(title=  latex2exp::TeX(paste0("AR(1) model with $\\phi_{1}$ = 1.2, $\\sigma^2 = 1$")))
+
+#plot them all togther
+ggarrange(plt1, plt2, plt3, plt4, ncol = 2, nrow = 2)
+```
+
+The wavelength of the time series changes as $\phi_{1}$ changes. As $\phi_{1}$ increases, the magnitude and wavelength increases and as $\phi_{1}$ decreases, so does the magnitude and wavelength.
+
 **c. Write your own code to generate data from an MA(1) model with $\theta_{1} = 0.6$ and $\sigma^2=1$.**  
+
+```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+for(i in 2:100)
+  y[i] <- 0.6*e[i-1] + e[i] 
+
+sim_ma <- tsibble(idx = seq_len(100), y = y, index = idx)
+```
+
 **d. Produce a time plot for the series. How does the plot change as you change $\theta_1$?**  
+```{r}
+sim_ma %>% autoplot(y)+
+  labs(title=  latex2exp::TeX(paste0("MA(1) model with $\\theta_{1} = 0.6$, $\\sigma^2 = 1$, $y_1=0$")))
+```
+
+
+```{r}
+#create the data
+for(i in 2:100)
+  y[i] <- 0*e[i-1] + e[i] 
+sim_ma2 <- tsibble(idx = seq_len(100), y = y, index = idx)
+
+for(i in 2:100)
+  y[i] <- .9*e[i-1] + e[i] 
+sim_ma3 <- tsibble(idx = seq_len(100), y = y, index = idx)
+
+for(i in 2:100)
+  y[i] <- 1.5*e[i-1] + e[i] 
+sim_ma4<- tsibble(idx = seq_len(100), y = y, index = idx)
+
+for(i in 2:100)
+  y[i] <- -1.5*e[i-1] + e[i] 
+sim_ma5<- tsibble(idx = seq_len(100), y = y, index = idx)
+
+#create the ggplot objects
+plt5 <- sim_ma2 %>% autoplot(y)+
+  labs(title=  latex2exp::TeX(paste0("MA(1) model with $\\theta_{1} = 0$, $\\sigma^2 = 1$")))
+
+plt6 <- sim_ma3 %>% autoplot(y)+
+  labs(title=  latex2exp::TeX(paste0("MA(1) model with $\\theta_{1} = 0.9$, $\\sigma^2 = 1$")))
+
+plt7 <- sim_ma4 %>% autoplot(y)+
+  labs(title=  latex2exp::TeX(paste0("MA(1) model with $\\theta_{1} = 1.5$, $\\sigma^2 = 1$")))
+
+plt8 <- sim_ma5 %>% autoplot(y)+
+  labs(title=  latex2exp::TeX(paste0("MA(1) model with $\\theta_{1} = -1.5$, $\\sigma^2 = 1$")))
+
+#plot them all togther
+ggarrange(plt5, plt6, plt7, plt8, ncol = 2, nrow = 2)
+```
+
 **e. Generate data from an ARMA(1,1) model with $\phi_{1} = 0.6$, $\theta_1=0.6$, and $\sigma^2=1$.**  
-**f. Generate data from an AR(2) model with $\phi_1=-0.8$, $\phi_2=0.3$, and $\sigma^2$=1.  (Note that these parameters will give a non-stationary series.)**  
+```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+for(i in 2:100)
+  y[i] <- 0.6*y[i-1] + 0.6*e[i-1] + e[i]
+
+sim_arma <- tsibble(idx = seq_len(100), y = y, index = idx)
+```
+
+**f. Generate data from an AR(2) model with $\phi_1=-0.8$, $\phi_2=0.3$, and $\sigma^2=1$.  (Note that these parameters will give a non-stationary series.)**  
+```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+for(i in 3:100)
+  y[i] <- -0.8*y[i-1] + 0.3*y[i-2] + e[i]
+
+sim_ar2 <- tsibble(idx = seq_len(100), y = y, index = idx)
+```
+
 **g. Graph the latter two series and compare them.**  
+```{r}
+plt9 <- sim_arma %>% autoplot(y)+
+  labs(title=  latex2exp::TeX(paste0("ARMA(1,1) model with $\\phi_{1} = 0.6$, $\\theta_1=0.6$, and $\\sigma^2=1$")))
+
+plt10 <- sim_ma5 %>% autoplot(y)+
+  labs(title=  latex2exp::TeX(paste0("AR(2) model with $\\phi_1=-0.8$, $\\phi_2=0.3$, and $\\sigma^2=1$")))
+
+ggarrange(plt9, plt10, ncol = 1, nrow = 2)
+```
 
 
 ### 9.7
 **Consider `aus_airpassengers`, the total number of passengers (in millions) from Australian air carriers for the period 1970-2011.**
 
-**a. Use `ARIMA()` to find an appropriate ARIMA model. What model was selected. Check that the residuals look like white noise. Plot forecasts for the next 10 periods.**  
-**b. Write the model in terms of the backshift operator.**  
-**c. Plot forecasts from an ARIMA(0,1,0) model with drift and compare these to part a.**  
-**d. Plot forecasts from an ARIMA(2,1,2) model with drift and compare these to parts a and c. Remove the constant and see what happens.**  
-**e. Plot forecasts from an ARIMA(0,2,1) model with a constant. What happens?**  
+```{r}
+aus_airpassengers
+```
 
+
+**a. Use `ARIMA()` to find an appropriate ARIMA model. What model was selected. Check that the residuals look like white noise. Plot forecasts for the next 10 periods.**  
+
+```{r}
+#create model
+fit <- aus_airpassengers %>%
+  model(ARIMA(Passengers))
+
+#find the fit
+report(fit)
+```
+
+```{r}
+#forecast 10 periods
+fit %>% forecast(h=10) %>%
+  autoplot(aus_airpassengers) +
+  labs(y = "Millions of Passengers", 
+       title = "Australian Air Passengers",
+       subtitle = "10 Year Forecast")
+```
+
+```{r}
+fit %>% gg_tsresiduals() + 
+  labs(title = "Australian Air Passengers",
+       subtitle = "10 Year Forecast")
+```
+
+Using the `ARIMA()` function, the model automatically selected for `aus_airpassengers` data the was an ARIMA(0,2,1). The output of the `gg_tsresiduals()` function confirms that the residuals are white noise.
+
+**b. Write the model in terms of the backshift operator.**    
+
+**c. Plot forecasts from an ARIMA(0,1,0) model with drift and compare these to part a.**   
+```{r}
+#ARIMA(0,1,0) 
+fit2 <- aus_airpassengers %>%
+  model(ARIMA(Passengers ~ pdq(0,1,0)))
+
+#plot forecast
+fit2 %>% forecast(h=10) %>%
+  autoplot(aus_airpassengers)
+
+#plot residuals
+fit2 %>% gg_tsresiduals()
+```
+
+
+**d. Plot forecasts from an ARIMA(2,1,2) model with drift and compare these to parts a and c. Remove the constant and see what happens.**  
+
+Running an `ARIMA(2,1,2)` on the `aus_airpassengers` results in a NULL model.
+
+```{r}
+#ARIMA(2,1,2) 
+fit3 <- aus_airpassengers %>%
+  model(ARIMA(Passengers ~ pdq(2,1,2)))
+
+report(fit3)
+```
+
+
+**e. Plot forecasts from an ARIMA(0,2,1) model with a constant. What happens?**  
+The automated model generated in 9.7.a is an `ARIMA(0,2,1)` model.
 
 ### 9.8
-**For the United States GDP series (from global_economy):**
+**For the United States GDP series (from `global_economy`):**
 
 **if necessary, find a suitable Box-Cox transformation for the data;**
+
+```{r}
+us_gdp <- global_economy %>% 
+  filter(Country=="United States")%>%
+  select(Country, GDP)
+
+lambda_gdp <- us_gdp %>%
+  features(GDP, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+us_gdp <- us_gdp %>%
+  mutate(GDP = box_cox(GDP, lambda_gdp))
+```
+
 **fit a suitable ARIMA model to the transformed data using ARIMA();**
+```{r}
+fit <- us_gdp %>%
+  model(
+    arima = ARIMA(GDP, stepwise = FALSE, approx = FALSE)
+  )
+report(fit)
+```
+
 **try some other plausible models by experimenting with the orders chosen;**
+```{r}
+us_gdp %>%
+  features(GDP, unitroot_ndiffs)
+```
+
+
 **choose what you think is the best model and check the residual diagnostics;**
 **produce forecasts of your fitted model. Do the forecasts look reasonable?**
 **compare the results with what you would obtain using ETS() (with no transformation).**
