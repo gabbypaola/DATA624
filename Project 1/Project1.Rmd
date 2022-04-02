@@ -132,7 +132,7 @@ atm$ATM4[285] <- tsoutliers(atm$ATM4)$replacements
 
 Using the below we see there are no NA values remaining in ATMs 1 and 2, and the outlier for ATM4 has been taken care of.
 ```{r}
-#how man NA values
+#verify how many NA values
 apply(is.na(atm),2,sum)
 
 summary(atm)
@@ -176,7 +176,7 @@ A KPSS test using `features(df$column, unitroot_kpss)` was considered to further
 
 Given the seasonal nature of the data, a reasonable approach is to include a seasonal naive method where last period’s sales are used for the next period’s forecast without predictions or adjusting the factors. Alternative models for this series are ETS and ARIMA models. An additional model that has been included is the `Auto ARIMA`, which is an automatically selected model by R with optimal values.
 
-```{r}
+```{r fig.height=10, fig.width=15, message=FALSE, warning=FALSE}
 #filter train data filter April data out to include it for eval later
 train <- ATM_1 %>%
   filter(date < "2010-04-01")
@@ -193,10 +193,8 @@ fit <- train %>%
 #forecast_ATM1 April 2010
 forecast_ATM1 <- fit %>%
   forecast(h = 30)
-```
 
-
-```{r fig.height=10, fig.width=15}
+#plot
 forecast_ATM1 %>%
   autoplot(ATM_1, level = NULL)+
   facet_wrap( ~ .model, scales = "free_y") +
@@ -239,8 +237,6 @@ ATM1_EST_forecast %>%
        y = "Cash Values in Hundreds")
 ```
 
-
-
 ### ATM 2 Forecast
 
 Similar to the process for ATM1, an STL "Seasonal and Trend decomposition using Loess" decomposition is performed to uncover any additional patterns in each component. 
@@ -264,7 +260,6 @@ The ACF plot below suggest lags at 2, 5, and 7 with 7 being the most significant
 ATM_2 %>% 
   ACF(ATM2, lag_max = 28) %>% 
   autoplot()
-  #gg_tsdisplay(plot_type='partial', lag_max = 28)
 ```
 
 Following from above and in preparation for an ARIMA model, `ndiffs()` is used to determine if any differencing is required. Based on the output, differencing required.
@@ -278,7 +273,7 @@ ndiffs(ATM_2$ATM2)
 
 In the case of ATM2, 2 separate fits are generated. One fit with two models, SNAIVE and ETS, is generated using the non-differenced data. The other fit with three models, ETS, ARIMA, and Auto Arima, is generated using the differenced data.
  
-```{r}
+```{r fig.height=8, fig.width=15}
 #need to add differenced data
 ATM_2 <- ATM_2 %>% 
   mutate(diff_ATM2= difference(ATM2))
@@ -310,9 +305,7 @@ forecast_ATM2_1 <- fit_1 %>%
 #forecast_ATM2 April
 forecast_ATM2_2 <- fit_2 %>%
   forecast(h = 30)
-```
 
-```{r fig.height=8, fig.width=15}
 #plot
 forecast_ATM2_1 %>%
   autoplot(ATM_2, level = NULL)+
@@ -322,10 +315,8 @@ forecast_ATM2_1 %>%
        subtitle = "April 2010") +
   xlab("Date") +
   ylab("Cash values in Hundreds") 
-```
 
-```{r fig.height=8, fig.width=15}
-#plot
+#plot 2
 forecast_ATM2_2 %>%
   autoplot(ATM_2, level = NULL)+
   facet_wrap( ~ .model, scales = "free_y") +
@@ -339,6 +330,8 @@ forecast_ATM2_2 %>%
 
 #### Evaluate
 
+Next the `accuracy()` function is run on both forecast objects to obtain the best fit based on the metrics. Of the five models run, the ETS model without the differenced data performs the best.
+
 ```{r message=FALSE, warning=FALSE}
 #find RMSE and other metrics
 accuracy(forecast_ATM2_1, ATM_2) %>%
@@ -350,6 +343,8 @@ accuracy(forecast_ATM2_2, ATM_2) %>%
 ```
 
 #### Generate Forecast
+
+Below the forcast is generated and plotted.
 
 ```{r}
 #reproduce the mode using the original dataset 
@@ -407,6 +402,13 @@ ATM_4 %>%
          round(lambda,2))))
 ```
 
+The summary of the Box-Cox transformed data suggests the skew identified above has decreased significantly in comparison to the earlier summary statistics run on the untransformed data. The transformed data is almost normal, with a slight left skew given the mean is left of the median by a relatively small amount.
+
+```{r}
+summary(ATM_4$ATM4_bc)
+```
+
+
 The ACF plot below suggest lags only at 7. The ACF seems to be decreasing relatively slowly, but after close inspection it looks like the ACF decreases from lags 7 to 21, and then slightly shifts back up at 28. Given the shift, an additional check will be performed to see if the series requires differencing.
 
 ```{r message=FALSE, warning=FALSE}
@@ -423,7 +425,9 @@ ndiffs(ATM_4$ATM4_bc)
 
 #### Model
 
-```{r message=FALSE, warning=FALSE}
+Four different models are run for ATM4 SNAIVE, ETS, ARIMA, and an Auto ARIMA using the Box-Cox transformed data.
+
+```{r fig.height=8, fig.width=15, message=FALSE, warning=FALSE}
 #filter train data filter April data out to include it for eval later
 train <- ATM_4 %>%
   filter(date < "2010-04-01")
@@ -440,9 +444,7 @@ fit <- train %>%
 #forecast_ATM1 April 2010
 forecast_ATM4 <- fit %>%
   forecast(h = 30)
-```
 
-```{r fig.height=8, fig.width=15, message=FALSE, warning=FALSE}
 #plot
 forecast_ATM4 %>%
   autoplot(ATM_4, level = NULL)+
@@ -453,6 +455,7 @@ forecast_ATM4 %>%
   xlab("Date") +
   ylab("Cash values in Hundreds") 
 ```
+
 
 #### Evaluation
 
@@ -466,7 +469,7 @@ accuracy(forecast_ATM4, ATM_4) %>%
 
 #### Generate Forecast
 
-Finally the forecast for ATM4 is produced using the optimal model method uncovered in the previous step. Inthe case of ATM4, the best model is SNAIVE.
+Finally the forecast for ATM4 is produced using the optimal model method uncovered in the previous step. In the case of ATM4, the best model is SNAIVE.
 
 ```{r message=FALSE, warning=FALSE}
 #reproduce the mode using the original dataset 
@@ -488,7 +491,7 @@ ATM4_SN_forecast %>%
 
 ## Part B – Forecasting Power
  
-Part B consists of a simple dataset of residential power usage for January 1998 until December 2013.  Your assignment is to model these data and a monthly forecast for 2014.  The data is given in a single file.  The variable ‘KWH’ is power consumption in Kilowatt hours, the rest is straight forward.    Add this to your existing files above. 
+Part B consists of a simple dataset of residential power usage for January 1998 until December 2013.  Your assignment is to model these data and a monthly forecast for 2014.  The data is given in a single file.  The variable ‘KWH’ is power consumption in Kilowatt hours, the rest is straight forward. Add this to your existing files above. 
 
 ```{r}
 
