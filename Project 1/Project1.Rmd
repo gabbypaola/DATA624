@@ -38,17 +38,27 @@ In part A, I want you to forecast how much cash is taken out of 4 different ATM 
 ### Load Data
 ```{r message=FALSE, warning=FALSE}
 #read in data and specify column types
-atm_data <- read_excel("ATM624Data.xlsx", col_types = c("date", "text", "numeric")) 
+atm_raw <- read_xlsx("ATM624Data.xlsx", col_types = c("date", "text", "numeric")) 
 
-str(atm_data)
+#, col_types = c("date", "text", "numeric")
+
+str(atm_raw)
 ```
 
-Based on the above, clean up is required before converting the tibble to a tsibble object for forecasting.
+Based on the above, clean up is required before converting the tibble to a tsibble object for forecasting. Additionally, ATM4 shows values in terms of decimals even after accounting for the hundreds which suggests odd amounts including dollars and cents not typially dispensed by ATMs.
+
+```{r}
+#filter raw data for ATM4
+atm_raw %>% 
+  filter(ATM == "ATM4") %>% 
+  head()
+```
 
 ### Exploratory Data Analysis
 
 ```{r}
-atm_data %>% 
+#plot
+atm_raw %>% 
   filter(DATE < "2010-05-01", !is.na(ATM)) %>% 
   ggplot(aes(x = DATE, y = Cash, col = ATM)) +
     geom_line(show.legend = FALSE) +
@@ -58,7 +68,7 @@ atm_data %>%
 ```
 
 ```{r}
-atm <- atm_data %>% 
+atm <- atm_raw %>% 
   #lowercase column names
   rename(date=DATE, atm=ATM, cash=Cash) %>%
   #convert date column from POSIXct to date type , cash = cash*100
@@ -75,7 +85,9 @@ atm <- atm_data %>%
 head(atm)
 ```
 
-NA value detection
+#### NA value detection
+
+Next we determine how many NAs we are dealing with and identify which ATMs have the NAs and on which dates. Using the below, both ATMs 1 and 2 seem to have all the NA values and all happen around the month of June. 
 
 ```{r}
 #how man NA values
@@ -86,10 +98,10 @@ atm[!complete.cases(atm), ]
 
 #unique(atm$ATM3)
 
-#sum(is.na(atm_data$ATM))
+#sum(is.na(atm_raw$ATM))
 ```
 
-Summary statistics
+#### Summary statistics
 ```{r}
 #summary stats
 summary(atm)
@@ -101,10 +113,18 @@ summary(atm)
 
 - ATM3: There are only three dates with amounts which are 04/28/2010, 04/29/2010, and 04/30/2010, all other dates have cash values of 0. It is not worth conducting a forecast for ATM3 given the lack of daily values. A potential reason for lack of data might be that the ATM was recently placed and therefore has not accumulated transactions for the time period.
 
-- ATM4: ATM4 shows seasonality with no trend and an extreme outlier that skews the time series plot, by a value of 10919.76. The distribution of the cash values are right skewed.
-At first glance of the values of ATM4 are quite odd although the values are expressed in hundreds. ATMs typically dispense money in denominations of 50s and 20s, particularly those serviced by banks and bank owned ATMs serviced by amoured car cash management services such as Brinks and Garda. Additionally for small ATMs serviced by store fronts similar to those found convenience stores, those output cash in additional denominations ranging from 50s, 20s, 10s and in some cases 5s. For the purpose of this project, the data will not be adjusted to account for the small amount of ATMs existing that give exact dollar and coin amounts.
+- ATM4: ATM4 shows seasonality with no trend and an extreme outlier that skews the time series plot, by a value of 10919.762. The distribution of the cash values are right skewed.
+At first glance of the values of ATM4 are quite odd although the values are expressed in hundreds. ATMs typically dispense money in denominations of 50s and 20s, particularly those serviced by banks and bank owned ATMs serviced by amoured car cash management services. Additionally for small ATMs serviced by store fronts similar to those found convenience stores, those output cash in additional denominations ranging from 50s, 20s, 10s and in some cases 5s. For the purpose of this project, the data will be rounded to shave off the additional values suggesting odd dollar and coin amounts.
 
-### Missing Values and Outliers
+```{r}
+atm$ATM4 <- round(atm$ATM4, 0)
+
+head(atm)
+```
+
+
+
+#### Missing Values and Outliers
 
 Using the `na.interp()` function from the forecast library, the missing values for ATM1 and ATM2 are generated through interpolation. "For seasonal series, a robust STL decomposition is first computed. Then a linear interpolation is applied to the seasonally adjusted data, and the seasonal component is added back." ^[https://pkg.robjhyndman.com/forecast/reference/na.interp.html] The `na.interp()` was chosen over a mean method because the distributions for both ATM1 and ATM2 were skewed and the values are seasonal based on day of the week, so using a mean might not provide as accurate output as an interpolation method.
 
@@ -129,6 +149,15 @@ Next, using the `tsoutliers()`^[https://pkg.robjhyndman.com/forecast/reference/t
 #do the replacement
 atm$ATM4[285] <- tsoutliers(atm$ATM4)$replacements
 ```
+
+Given the slight skews detected for ATMs 1 and 2, we will also use `tsoutliers()` to detect any existing outliers and replace them accordingly. Neither ATM require outlier replacement. 
+
+```{r}
+tsoutliers(atm$ATM1)
+
+tsoutliers(atm$ATM2)
+```
+
 
 Using the below we see there are no NA values remaining in ATMs 1 and 2, and the outlier for ATM4 has been taken care of. While the outlier for ATM4 has been resolved, there is still a high right skew on the data which is an indicator that a transformation may be required prior to modeling and forecasting.
 ```{r}
@@ -493,17 +522,51 @@ ATM4_SN_forecast %>%
  
 Part B consists of a simple dataset of residential power usage for January 1998 until December 2013.  Your assignment is to model these data and a monthly forecast for 2014.  The data is given in a single file.  The variable ‘KWH’ is power consumption in Kilowatt hours, the rest is straight forward. Add this to your existing files above. 
 
-```{r message=FALSE, warning=FALSE}
-power_data <- read_excel("ResidentialCustomerForecastLoad-624.xlsx")
+### Load Data
 
-str(power_data)
+```{r message=FALSE, warning=FALSE}
+power_raw <- read_xlsx("ResidentialCustomerForecastLoad-624.xlsx")
+
+str(power_raw)
 ```
 
-After inspecting the structure of our `power_data`, it looks like there are three columns, one of which is irrelevant (`CaseSequence`) to our forecast of power utilization. The `YYYY-MM` column will need to be converted to a date type in order to be used as the index for the required tsibble object. 
+After inspecting the structure of our `power_raw`, it looks like there are three columns, one of which is irrelevant (`CaseSequence`) to our forecast of power utilization. `CaseSequence` will be removed in the cleaning process. The `YYYY-MM` column will need to be converted to a date type in order to be used as the index for the required tsibble object. 
+
+Using `summary`, there is also one NA in the `KWH` column, and a potential outlier in the minimum value. 
  
 ```{r}
-summary(power_data)
+summary(power_raw)
 ```
+
+```{r}
+#what month is the NA at
+power_raw[!complete.cases(power_raw), ]
+```
+
+Next we clean the data to adjust the variable type of `YYYY-MM` to date type and call it `Month` and create a `tsibble` object from the `tibble`.
+
+```{r}
+#change variable type and to tsibble
+power <- power_raw %>% 
+  mutate(Month = yearmonth(`YYYY-MMM`)) %>%
+  select(-CaseSequence, -'YYYY-MMM') %>%
+  as_tsibble(index = Month)
+  
+#plot
+ggplot(power, aes(x=KWH))+
+  geom_histogram()+
+  labs(title = "Distribution of Monthly Residential Power Usage",
+       subtitle="January 1998 - December 2013") +
+  ylab(label="")
+```
+
+```{r}
+power %>%
+  autoplot(KWH) +
+  labs(title = "Monthly Residential Power Usage",
+       subtitle="January 1998 - December 2013")
+```
+
 
 
 ## Part C – BONUS
