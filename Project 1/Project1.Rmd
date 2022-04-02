@@ -40,10 +40,10 @@ In part A, I want you to forecast how much cash is taken out of 4 different ATM 
 #read in data and specify column types
 atm_data <- read_excel("ATM624Data.xlsx", col_types = c("date", "text", "numeric")) 
 
-head(atm_data)
+str(atm_data)
 ```
 
-Based on the above, clean up is required before converting to a tsibble object for forecasting.
+Based on the above, clean up is required before converting the tibble to a tsibble object for forecasting.
 
 ### Exploratory Data Analysis
 
@@ -130,7 +130,7 @@ Next, using the `tsoutliers()`^[https://pkg.robjhyndman.com/forecast/reference/t
 atm$ATM4[285] <- tsoutliers(atm$ATM4)$replacements
 ```
 
-Using the below we see there are no NA values remaining in ATMs 1 and 2, and the outlier for ATM4 has been taken care of.
+Using the below we see there are no NA values remaining in ATMs 1 and 2, and the outlier for ATM4 has been taken care of. While the outlier for ATM4 has been resolved, there is still a high right skew on the data which is an indicator that a transformation may be required prior to modeling and forecasting.
 ```{r}
 #verify how many NA values
 apply(is.na(atm),2,sum)
@@ -493,8 +493,16 @@ ATM4_SN_forecast %>%
  
 Part B consists of a simple dataset of residential power usage for January 1998 until December 2013.  Your assignment is to model these data and a monthly forecast for 2014.  The data is given in a single file.  The variable ‘KWH’ is power consumption in Kilowatt hours, the rest is straight forward. Add this to your existing files above. 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+power_data <- read_excel("ResidentialCustomerForecastLoad-624.xlsx")
 
+str(power_data)
+```
+
+After inspecting the structure of our `power_data`, it looks like there are three columns, one of which is irrelevant (`CaseSequence`) to our forecast of power utilization. The `YYYY-MM` column will need to be converted to a date type in order to be used as the index for the required tsibble object. 
+ 
+```{r}
+summary(power_data)
 ```
 
 
