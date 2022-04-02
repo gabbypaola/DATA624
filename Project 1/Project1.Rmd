@@ -532,7 +532,7 @@ str(power_raw)
 
 After inspecting the structure of our `power_raw`, it looks like there are three columns, one of which is irrelevant (`CaseSequence`) to our forecast of power utilization. `CaseSequence` will be removed in the cleaning process. The `YYYY-MM` column will need to be converted to a date type in order to be used as the index for the required tsibble object. 
 
-Using `summary`, there is also one NA in the `KWH` column, and a potential outlier in the minimum value. 
+Using `summary`, there is also one NA in the `KWH` column, and a potential outlier in the minimum value. Additionally, the distribution shows a right skew since the mean is considerably larger than the median.
  
 ```{r}
 summary(power_raw)
@@ -541,6 +541,10 @@ summary(power_raw)
 ```{r}
 #what month is the NA at
 power_raw[!complete.cases(power_raw), ]
+
+#what month is the min at
+power_raw %>% 
+  filter(KWH == 770523)
 ```
 
 Next we clean the data to adjust the variable type of `YYYY-MM` to date type and call it `Month` and create a `tsibble` object from the `tibble`.
@@ -551,16 +555,21 @@ power <- power_raw %>%
   mutate(Month = yearmonth(`YYYY-MMM`)) %>%
   select(-CaseSequence, -'YYYY-MMM') %>%
   as_tsibble(index = Month)
-  
-#plot
+```
+
+The distribution plot confirms the initial finding a right skew using the mean and median. Additionally, the outlier detected above can also be seen on the far left of the plot. The outlier will need to be imputed and replaced. 
+
+Next, the timeseries plot shows the NA value initially detected with the `summary functon` in September of 2008. The outlier can also clearly be seen in the plot in July of 2010. As mentioned previously both will require replacement in order to conduct a model and forecast. 
+
+```{r message=FALSE, warning=FALSE}
+#distro plot
 ggplot(power, aes(x=KWH))+
   geom_histogram()+
   labs(title = "Distribution of Monthly Residential Power Usage",
        subtitle="January 1998 - December 2013") +
   ylab(label="")
-```
 
-```{r}
+#ts plot
 power %>%
   autoplot(KWH) +
   labs(title = "Monthly Residential Power Usage",
