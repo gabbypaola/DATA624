@@ -56,12 +56,12 @@ atm_raw %>%
 
 ### Exploratory Data Analysis
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #distro plot
 atm_raw %>% 
   filter(DATE < "2010-05-01", !is.na(ATM)) %>% 
   ggplot(aes(x = Cash)) +
-    geom_histogram() +
+    geom_histogram(bins = 30) +
     facet_wrap(~ ATM, ncol = 2, scales = "free") +
     labs(title = "Daily ATM Withdrawals") +
     scale_y_continuous("Withdrawals (hundreds)")
@@ -117,7 +117,7 @@ atm[!complete.cases(atm), ]
 summary(atm)
 ```
 
-- ATM1: Contains 3 NA values. The series shows a seasonal pattern with no trend where the time series is affected by the day of the week. The distribution of the cash values is bimodal and are right skewed.
+- ATM1: Contains 3 NA values. The series shows a seasonal pattern with no trend where the time series is affected by the day of the week. The distribution of the cash values is bimodal and are left skewed.
 
 - ATM2: Contains 2 NA values. Similar to ATM1, the series shows a seasonal pattern with no trend where the time series is affected by the day of the week. The distribution of the cash values are left skewed.
 
@@ -609,7 +609,7 @@ power$KWH <- replace(power$KWH, power$KWH == min(power$KWH),
                           median(power$KWH))
 ```
 
-Below is the distribution after resolving the NA value and the outlier. It is still has a right skew and would be beneficial to do a transfomation prior to modeling and forecasting. The time series plot of the variable shows strong seasonality with an upward trend picking up around 2008-2009.
+Below is the distribution after resolving the NA value and the outlier, it still has a right skew. The time series plot of the variable shows strong seasonality with an upward trend picking up around 2008-2009. Given the skew of the data, a transformation might be useful.
 
 ```{r message=FALSE, warning=FALSE}
 #distro plot
@@ -632,10 +632,72 @@ power %>%
 
 ### Transformation
 
+Below is the transformed `power` time series data which doesn't look different from the original time series plot besides the scale, but now has a normal distribution noted by the mean and median being equal. 
+
+```{r message=FALSE, warning=FALSE}
+#get lambda
+lambda <- power %>%
+  features(KWH, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+#add new value
+power <- power %>% 
+    mutate(KWH_bc = box_cox(KWH, lambda))
+
+#stats
+summary(power$KWH_bc)
+
+#plot
+power %>% 
+  autoplot(KWH_bc) +
+  labs(y = "KWH in Thousands",
+       title = latex2exp::TeX(paste0(
+         "Transformed KWH with $\\lambda$ = ",
+         round(lambda,2))))
+```
+
+### Forecast
+
+To uncover additional patterns noted in the series, an STL "Seasonal and Trend decomposition using Loess" decomposition is performed given the seasonality of the series. Below we see the yearly seasonality and a trend appearing towards the end of the series.
+
+```{r}
+power %>%
+  model(
+    STL(KWH ~ trend(window = 13) +
+                   season(window = "periodic"),
+    robust = TRUE)) %>%
+  components() %>%
+  autoplot()
+```
+
+The ACF plot below tells us:
+
+- $r_{12}$ is the highest of all the lags and is due to the seasonal pattern for the data. The highest lags are at every 12th r value.
+- $r_{3}$ is the first highest negative lag and has a peak every 6 months onward (9,15,21,27,33). The troughs tend to be six months behind peaks.
+- All of the correlations plotted are significantly different from zero as they all fall outside of the dashed blue lines.
+- The 12 month lags appear to be decreasing relatively slowly which could be an indicator that the data is non-stationary and could potentially benefit from differencing. Additional check using `ndiffs()` will follow.
+
+```{r}
+power %>% 
+  ACF(KWH, lag_max = 36) %>% 
+  autoplot()
+```
+
+One differencing will be required.
+```{r}
+ndiffs(power$KWH)
+
+#need to add differenced data
+diff_power <- power %>% 
+  mutate(diff_KWH= difference(KWH), diff_KWH_bc = difference(KWH_bc)) %>% 
+  select(-KWH, -KWH_bc)
+
+ndiffs(diff_power$diff_KWH)
+```
+
 ```{r}
 
 ```
-
 
 
 
