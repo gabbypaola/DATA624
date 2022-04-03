@@ -57,7 +57,17 @@ atm_raw %>%
 ### Exploratory Data Analysis
 
 ```{r}
-#plot
+#distro plot
+atm_raw %>% 
+  filter(DATE < "2010-05-01", !is.na(ATM)) %>% 
+  ggplot(aes(x = Cash)) +
+    geom_histogram() +
+    facet_wrap(~ ATM, ncol = 2, scales = "free") +
+    labs(title = "Daily ATM Withdrawals") +
+    scale_y_continuous("Withdrawals (hundreds)")
+
+
+#ts plot
 atm_raw %>% 
   filter(DATE < "2010-05-01", !is.na(ATM)) %>% 
   ggplot(aes(x = DATE, y = Cash, col = ATM)) +
@@ -157,7 +167,6 @@ tsoutliers(atm$ATM1)
 
 tsoutliers(atm$ATM2)
 ```
-
 
 Using the below we see there are no NA values remaining in ATMs 1 and 2, and the outlier for ATM4 has been taken care of. While the outlier for ATM4 has been resolved, there is still a high right skew on the data which is an indicator that a transformation may be required prior to modeling and forecasting.
 ```{r}
@@ -547,19 +556,60 @@ power_raw %>%
   filter(KWH == 770523)
 ```
 
-Next we clean the data to adjust the variable type of `YYYY-MM` to date type and call it `Month` and create a `tsibble` object from the `tibble`.
+Next we clean the data to adjust the variable type of `YYYY-MM` to date type and call it `Month` and create a `tsibble` object from the `tibble` Additonally, the `KWH` variable is transformed to be expressed in values of thousands to make it easier for analysis and interpretation.
 
-```{r}
-#change variable type and to tsibble
-power <- power_raw %>% 
-  mutate(Month = yearmonth(`YYYY-MMM`)) %>%
-  select(-CaseSequence, -'YYYY-MMM') %>%
-  as_tsibble(index = Month)
+```{r message=FALSE, warning=FALSE}
+#change variable type 
+power_tsibble <- power_raw %>% 
+  mutate(Month = yearmonth(`YYYY-MMM`), KWH = KWH/1000) %>%
+  select(-CaseSequence, -'YYYY-MMM') %>% 
+  tsibble(index= Month)
+
+head(power_tsibble)
 ```
+
+
+### Exploratory Data Analysis
 
 The distribution plot confirms the initial finding a right skew using the mean and median. Additionally, the outlier detected above can also be seen on the far left of the plot. The outlier will need to be imputed and replaced. 
 
 Next, the timeseries plot shows the NA value initially detected with the `summary functon` in September of 2008. The outlier can also clearly be seen in the plot in July of 2010. As mentioned previously both will require replacement in order to conduct a model and forecast. 
+
+```{r message=FALSE, warning=FALSE}
+#distro plot
+ggplot(power_tsibble, aes(x=KWH))+
+  geom_histogram(bins=40)+
+  labs(title = "Distribution of Monthly Residential Power Usage",
+       subtitle="January 1998 - December 2013") +
+  ylab(label="")
+
+#ts plot
+power_tsibble %>%
+  autoplot(KWH) +
+  labs(title = "Monthly Residential Power Usage",
+       subtitle="January 1998 - December 2013")
+```
+
+### Missing Values and Outliers
+
+First a copy of the table is created, then teh NA value is replaced using `na.interp`. Next, `tsoutliers` is used on the outlier identified above to detect and replace it. For some reason, the `tsoutliers` function didn't detect the outlier seen in the distribution to the far left. Instead of using the function to replace the outlier, it will be manually replaced with the median in order not to further skew the distribution by changing it using the mean.
+
+```{r}
+#create a copy of the tsibble
+power <- power_tsibble
+
+#replace NA
+power$KWH <- na.interp(power$KWH)
+
+#find and detect outlier
+tsoutliers(power$KWH)
+
+#manually change the outlier
+power$KWH <- replace(power$KWH, power$KWH == min(power$KWH),
+                          median(power$KWH))
+```
+
+Below is the distribution after resolving the NA value and the outlier. It is still has a right skew and would be beneficial to do a transfomation prior to modeling and forecasting. The time series plot of the variable shows strong seasonality with an upward trend picking up around 2008-2009.
 
 ```{r message=FALSE, warning=FALSE}
 #distro plot
@@ -569,12 +619,23 @@ ggplot(power, aes(x=KWH))+
        subtitle="January 1998 - December 2013") +
   ylab(label="")
 
+#summary
+summary(power$KWH)
+
 #ts plot
 power %>%
   autoplot(KWH) +
   labs(title = "Monthly Residential Power Usage",
-       subtitle="January 1998 - December 2013")
+       subtitle="January 1998 - December 2013")+
+  ylab(label= "KWH in Thousands")
 ```
+
+### Transformation
+
+```{r}
+
+```
+
 
 
 
