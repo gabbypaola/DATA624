@@ -24,6 +24,7 @@ library(fpp3)
 library(forecast)
 library(ggplot2)
 library(imputeTS)
+library(readr)
 ```
 
 ## Part A – ATM Forecast
@@ -45,13 +46,13 @@ atm_raw <- read_xlsx("ATM624Data.xlsx", col_types = c("date", "text", "numeric")
 str(atm_raw)
 ```
 
-Based on the above, clean up is required before converting the tibble to a tsibble object for forecasting. Additionally, ATM4 shows values in terms of decimals even after accounting for the hundreds which suggests odd amounts including dollars and cents not typially dispensed by ATMs.
+Based on the above, clean up is required before converting the tibble to a tsibble object for forecasting. Additionally, ATM4 shows values in terms of decimals even after accounting for the hundreds which suggests odd amounts including dollars and cents not typically dispensed by ATMs.
 
 ```{r}
 #filter raw data for ATM4
 atm_raw %>% 
-  filter(ATM == "ATM4") %>% 
-  head()
+  filter(ATM == "ATM4")%>% 
+  head(10) 
 ```
 
 ### Exploratory Data Analysis
@@ -124,7 +125,7 @@ summary(atm)
 - ATM3: There are only three dates with amounts which are 04/28/2010, 04/29/2010, and 04/30/2010, all other dates have cash values of 0. It is not worth conducting a forecast for ATM3 given the lack of daily values. A potential reason for lack of data might be that the ATM was recently placed and therefore has not accumulated transactions for the time period.
 
 - ATM4: ATM4 shows seasonality with no trend and an extreme outlier that skews the time series plot, by a value of 10919.762. The distribution of the cash values are right skewed.
-At first glance of the values of ATM4 are quite odd although the values are expressed in hundreds. ATMs typically dispense money in denominations of 50s and 20s, particularly those serviced by banks and bank owned ATMs serviced by amoured car cash management services. Additionally for small ATMs serviced by store fronts similar to those found convenience stores, those output cash in additional denominations ranging from 50s, 20s, 10s and in some cases 5s. For the purpose of this project, the data will be rounded to shave off the additional values suggesting odd dollar and coin amounts.
+At first glance of the values of ATM4 are quite odd although the values are expressed in hundreds. ATMs typically dispense money in denominations of 50s and 20s, particularly those serviced by banks and bank owned ATMs serviced by amoured car cash management services. Additionally, for small ATMs serviced by store fronts similar to those found convenience stores, those output cash in additional denominations ranging from 50s, 20s, 10s and in some cases 5s. For the purpose of this project, the data will be rounded to shave off the additional values suggesting odd dollar and coin amounts. Lastly, the values in general are very large for one ATM. For example, the first observation o 05/01/2009, shows a value of 777, which after expressing in hundreds is 777,000. That is over three quarters of a million of dollars which is an exorbitant amount of one ATM to hold. This value may be reflective of multiple ATMs in one vestibule, and not one singular ATM.
 
 ```{r}
 atm$ATM4 <- round(atm$ATM4, 0)
@@ -134,7 +135,7 @@ head(atm)
 
 
 
-#### Missing Values and Outliers
+### Missing Values and Outliers
 
 Using the `na.interp()` function from the forecast library, the missing values for ATM1 and ATM2 are generated through interpolation. "For seasonal series, a robust STL decomposition is first computed. Then a linear interpolation is applied to the seasonally adjusted data, and the seasonal component is added back." ^[https://pkg.robjhyndman.com/forecast/reference/na.interp.html] The `na.interp()` was chosen over a mean method because the distributions for both ATM1 and ATM2 were skewed and the values are seasonal based on day of the week, so using a mean might not provide as accurate output as an interpolation method.
 
@@ -162,14 +163,14 @@ atm$ATM4[285] <- tsoutliers(atm$ATM4)$replacements
 
 Given the slight skews detected for ATMs 1 and 2, we will also use `tsoutliers()` to detect any existing outliers and replace them accordingly. Neither ATM require outlier replacement. 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 tsoutliers(atm$ATM1)
 
 tsoutliers(atm$ATM2)
 ```
 
 Using the below we see there are no NA values remaining in ATMs 1 and 2, and the outlier for ATM4 has been taken care of. While the outlier for ATM4 has been resolved, there is still a high right skew on the data which is an indicator that a transformation may be required prior to modeling and forecasting.
-```{r}
+```{r message=FALSE, warning=FALSE}
 #verify how many NA values
 apply(is.na(atm),2,sum)
 
@@ -180,7 +181,7 @@ summary(atm)
 
 Next, in order to uncover additional patterns noted in the series, an STL "Seasonal and Trend decomposition using Loess" decomposition is performed given the seasonality of the series. The parameter `trend(window = 7)` is set to 7 for the daily data, and the `season(window='periodic')` parameter force the seasonal component to be periodic across days of the week. Both trend and seasonal windows should be odd numbers; trend window is the number of consecutive observations to be used when estimating the trend-cycle; season window is the number of consecutive years to be used in estimating each value in the seasonal component.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 ATM_1 <- atm %>% 
   select(date, ATM1)
 
@@ -195,7 +196,7 @@ ATM_1 %>%
 
 The ACF plot below suggest lags at 2, 5, and 7 with 7 being the most significant lag. The ACF seems to be decreasing relatively slowly which could be an indicator that the data is non-stationary and could potentially benefit from differencing. Although the ACF is decreasing slowly, the $r_1$ value is not very large suggesting that the series might not be stationary. Additional checks are required.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 ATM_1 %>% 
   ACF(ATM1, lag_max = 28) %>% 
   autoplot()
@@ -204,7 +205,7 @@ ATM_1 %>%
 
 Following from above and in preparation for an ARIMA model, `ndiffs()` is used to determine if any differencing is required. Based on the output, there is no differencing required.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 ndiffs(ATM_1$ATM1)
 ```
 
@@ -247,7 +248,7 @@ forecast_ATM1 %>%
 
 Using the `accuracy()` function, we determine which model performed best based on their metrics. In review of the metrics, the ETS model has higher accuracy on the cross-validated performance measures for ATM1.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #find RMSE and other metrics
 accuracy(forecast_ATM1, ATM_1) %>%
   select(.model, RMSE:MAPE)
@@ -257,7 +258,7 @@ accuracy(forecast_ATM1, ATM_1) %>%
 
 Next, the forecast for ATM1 is produced after obtaining the optimal model of the four generated above.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #reproduce the mode using the original dataset 
 AMT1_ETS_fit <- ATM_1 %>% 
   model(
@@ -275,11 +276,30 @@ ATM1_EST_forecast %>%
        y = "Cash Values in Hundreds")
 ```
 
+```{r}
+#convert to df and select only the columns needed
+ATM1_forecast_values <- as.data.frame(ATM1_EST_forecast) %>% 
+  select(date, .mean)
+
+#fix column names
+colnames(ATM1_forecast_values) <- c('Date', 'Cash')
+
+#back transform values
+ATM1_forecast_values <- ATM1_forecast_values %>% 
+    mutate(Cash= round(Cash))
+
+ATM1_forecast_values
+
+#save to csv
+write_excel_csv(ATM1_forecast_values, "ATM1_forecast.csv")
+```
+
+
 ### ATM 2 Forecast
 
 Similar to the process for ATM1, an STL "Seasonal and Trend decomposition using Loess" decomposition is performed to uncover any additional patterns in each component. 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 ATM_2 <- atm %>% 
   select(date, ATM2)
 
@@ -294,7 +314,7 @@ ATM_2 %>%
 
 The ACF plot below suggest lags at 2, 5, and 7 with 7 being the most significant lag. The ACF seems to be decreasing relatively slowly which could be an indicator that the data is non-stationary and could potentially benefit from differencing. Although the ACF is decreasing slowly, the $r_1$ value is not very large suggesting that the series might not be stationary. Additional checks are required.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 ATM_2 %>% 
   ACF(ATM2, lag_max = 28) %>% 
   autoplot()
@@ -311,7 +331,7 @@ ndiffs(ATM_2$ATM2)
 
 In the case of ATM2, 2 separate fits are generated. One fit with two models, SNAIVE and ETS, is generated using the non-differenced data. The other fit with three models, ETS, ARIMA, and Auto Arima, is generated using the differenced data.
  
-```{r fig.height=8, fig.width=15}
+```{r fig.height=8, fig.width=15, message=FALSE, warning=FALSE}
 #need to add differenced data
 ATM_2 <- ATM_2 %>% 
   mutate(diff_ATM2= difference(ATM2))
@@ -384,7 +404,7 @@ accuracy(forecast_ATM2_2, ATM_2) %>%
 
 Below the forcast is generated and plotted.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #reproduce the mode using the original dataset 
 AMT2_ETS_fit <- ATM_2 %>% 
   model(
@@ -402,11 +422,30 @@ ATM2_EST_forecast %>%
        y = "Cash Values in Hundreds")
 ```
 
-### ATM 4
-
-As seen below in the plot, ATM4 has the most variance of all ATMs modeled thus far; as such a Box-Cox transformation will be required.
-
 ```{r}
+#convert to df and select only the columns needed
+ATM2_forecast_values <- as.data.frame(ATM2_EST_forecast) %>% 
+  select(date, .mean)
+
+#fix column names
+colnames(ATM2_forecast_values) <- c('Date', 'Cash')
+
+#round values for integer output
+ATM2_forecast_values <- ATM2_forecast_values %>% 
+    mutate(Cash= round(Cash))
+
+ATM2_forecast_values
+
+#save to csv
+write_excel_csv(ATM2_forecast_values, "ATM2_forecast.csv")
+```
+
+
+### ATM 4 Forecast
+
+As seen below in the plot, ATM4 has the most variance of all ATMs modeled thus far; as such a mathematical transformation will be required.
+
+```{r message=FALSE, warning=FALSE}
 ATM_4 <- atm %>% 
   select(date, ATM4)
 
@@ -419,7 +458,7 @@ ATM_4 %>%
   autoplot()
 ```
 
-Next, the lambda value is generated along with adding the transformed values for modeling, evaluation, and forecasting.
+Next, the lambda value is generated along with adding the transformed values for modeling, evaluation, and forecasting. Lambda turns out to be 0.4 which is approximately a square root transform. In this case, a square root transform is prefered for simplicity of the back transform in the final forecast values as opposed to an actual Box-Cox transform.
 
 ```{r message=FALSE, warning=FALSE}
 #get lambda
@@ -427,23 +466,21 @@ lambda <- ATM_4 %>%
   features(ATM4, features = guerrero) %>%
   pull(lambda_guerrero)
 
-#add new value
+#add new value- sqrt transform
 ATM_4 <- ATM_4 %>% 
-    mutate(ATM4_bc = box_cox(ATM4, lambda))
+    mutate(ATM4_sqrt= sqrt(ATM4))
 
 #plot
 ATM_4 %>% 
-  autoplot(ATM4_bc) +
+  autoplot(ATM4_sqrt) +
   labs(y = "Cash Values in Hundreds",
-       title = latex2exp::TeX(paste0(
-         "Transformed ATM4 Cash Values with $\\lambda$ = ",
-         round(lambda,2))))
+       title ="Square root Transformed ATM4 Cash Values")
 ```
 
 The summary of the Box-Cox transformed data suggests the skew identified above has decreased significantly in comparison to the earlier summary statistics run on the untransformed data. The transformed data is almost normal, with a slight left skew given the mean is left of the median by a relatively small amount.
 
-```{r}
-summary(ATM_4$ATM4_bc)
+```{r message=FALSE, warning=FALSE}
+summary(ATM_4$ATM4_sqrt)
 ```
 
 
@@ -451,19 +488,21 @@ The ACF plot below suggest lags only at 7. The ACF seems to be decreasing relati
 
 ```{r message=FALSE, warning=FALSE}
 ATM_4 %>% 
-  ACF(ATM4_bc, lag_max = 28) %>% 
+  ACF(ATM4_sqrt, lag_max = 28) %>% 
   autoplot()
 ```
 
 Following from above and in preparation for an ARIMA model, `ndiffs()` is used to determine if any differencing is required. Based on the output, there is no differencing required.
 
 ```{r message=FALSE, warning=FALSE}
-ndiffs(ATM_4$ATM4_bc)
+ndiffs(ATM_4$ATM4)
+
+ndiffs(ATM_4$ATM4_sqrt)
 ```
 
 #### Model
 
-Four different models are run for ATM4 SNAIVE, ETS, ARIMA, and an Auto ARIMA using the Box-Cox transformed data.
+Four different models are run for ATM4 SNAIVE, ETS, ARIMA, and an Auto ARIMA.
 
 ```{r fig.height=8, fig.width=15, message=FALSE, warning=FALSE}
 #filter train data filter April data out to include it for eval later
@@ -473,10 +512,10 @@ train <- ATM_4 %>%
 #run seasonal related models
 fit <- train %>%
   model(
-    SNAIVE = SNAIVE(ATM4_bc),
-    ETS = ETS(ATM4_bc),
-    ARIMA = ARIMA(ATM4_bc),
-    `Auto ARIMA` = ARIMA(ATM4_bc, stepwise = FALSE, approx = FALSE)
+    SNAIVE = SNAIVE(ATM4_sqrt),
+    ETS = ETS(ATM4_sqrt),
+    ARIMA = ARIMA(ATM4_sqrt),
+    `Auto ARIMA` = ARIMA(ATM4_sqrt, stepwise = FALSE, approx = FALSE)
   )
 
 #forecast_ATM1 April 2010
@@ -497,7 +536,7 @@ forecast_ATM4 %>%
 
 #### Evaluation
 
-Using the `accuracy()` function is used to determine which model performed best based on their metrics. In review of the metrics, the SNAIVE model has higher accuracy on the cross-validated performance measures.
+The `accuracy()` function is used to determine which model performed best based on their metrics. In review of the metrics, the Auto ARIMA model has higher accuracy on the cross-validated performance measures with exception to the SNAIVE which has a better performing MAE.
 
 ```{r message=FALSE, warning=FALSE}
 #find RMSE and other metrics
@@ -505,14 +544,16 @@ accuracy(forecast_ATM4, ATM_4) %>%
   select(.model, RMSE:MAE)
 ```
 
+
+
 #### Generate Forecast
 
-Finally the forecast for ATM4 is produced using the optimal model method uncovered in the previous step. In the case of ATM4, the best model is SNAIVE.
+Finally the forecast for ATM4 is produced using the optimal model method uncovered in the previous step. In the case of ATM4, the best model is ETS. The final values are expressed using the square root transformed values and will be back transformed.
 
 ```{r message=FALSE, warning=FALSE}
 #reproduce the mode using the original dataset 
 AMT4_SN_fit <- ATM_4 %>% 
-  model(SNAIVE = SNAIVE(ATM4_bc))
+  model(ETS = ETS(ATM4_sqrt))
 
 #generate the values
 ATM4_SN_forecast <- AMT4_SN_fit %>% 
@@ -526,6 +567,25 @@ ATM4_SN_forecast %>%
        y = "Cash Values in Hundreds")
 ```
 
+Lastly, the values of the forecast are saved into .CSV format for submission after being back transformed by squaring and rounding the values.
+
+```{r}
+#convert to df and select only the columns needed
+ATM4_forecast_values <- as.data.frame(ATM4_SN_forecast) %>% 
+  select(date, .mean)
+
+#fix column names
+colnames(ATM4_forecast_values) <- c('Date', 'Cash')
+
+#back transform values
+ATM4_forecast_values <- ATM4_forecast_values %>% 
+    mutate(Cash= round(Cash**2))
+
+ATM4_forecast_values
+
+#save to csv
+write_excel_csv(ATM4_forecast_values, "ATM4_forecast.csv")
+```
 
 ## Part B – Forecasting Power
  
@@ -592,16 +652,16 @@ power_tsibble %>%
 
 ### Missing Values and Outliers
 
-First a copy of the table is created, then teh NA value is replaced using `na.interp`. Next, `tsoutliers` is used on the outlier identified above to detect and replace it. For some reason, the `tsoutliers` function didn't detect the outlier seen in the distribution to the far left. Instead of using the function to replace the outlier, it will be manually replaced with the median in order not to further skew the distribution by changing it using the mean.
+First a copy of the table is created, then the NA value is replaced using `na.interp`. Next, `tsoutliers` is used on the outlier identified above to detect and replace it. For some reason, the `tsoutliers` function didn't detect the outlier seen in the distribution to the far left. Instead of using the function to replace the outlier, it will be manually replaced with the median in order not to further skew the distribution by changing it using the mean.
 
-```{r}
+```{r class.source = 'fold-show'}
 #create a copy of the tsibble
 power <- power_tsibble
 
 #replace NA
 power$KWH <- na.interp(power$KWH)
 
-#find and detect outlier
+#find and detect outlier - didn't work
 tsoutliers(power$KWH)
 
 #manually change the outlier
@@ -609,10 +669,10 @@ power$KWH <- replace(power$KWH, power$KWH == min(power$KWH),
                           median(power$KWH))
 ```
 
-Below is the distribution after resolving the NA value and the outlier, it still has a right skew. The time series plot of the variable shows strong seasonality with an upward trend picking up around 2008-2009. Given the skew of the data, a transformation might be useful.
+Below is the distribution after resolving the NA value and the outlier, it still has a right skew. The time series plot of the variable shows strong seasonality with an upward trend picking up around 2008-2009. Given the skew of the data, a Box-Cox transformation might be useful.
 
 ```{r message=FALSE, warning=FALSE}
-#distro plot
+#distro histo plot
 ggplot(power, aes(x=KWH))+
   geom_histogram()+
   labs(title = "Distribution of Monthly Residential Power Usage",
@@ -632,7 +692,7 @@ power %>%
 
 ### Transformation
 
-Below is the transformed `power` time series data which doesn't look different from the original time series plot besides the scale, but now has a normal distribution noted by the mean and median being equal. 
+Below is the `summary()` for the Box-Cox transformed `power` data set which now has a normal distribution noted by the mean and median being equal; time series plot doesn't look extremely different from the original time series plot besides the scale now being smaller and slightly less variance. 
 
 ```{r message=FALSE, warning=FALSE}
 #get lambda
@@ -646,6 +706,13 @@ power <- power %>%
 
 #stats
 summary(power$KWH_bc)
+
+#distro histo plot
+ggplot(power, aes(x=KWH_bc))+
+  geom_histogram()+
+  labs(title = "Distribution of Monthly Residential Power Usage",
+       subtitle="January 1998 - December 2013") +
+  ylab(label="")
 
 #plot
 power %>% 
@@ -663,7 +730,7 @@ To uncover additional patterns noted in the series, an STL "Seasonal and Trend d
 ```{r}
 power %>%
   model(
-    STL(KWH ~ trend(window = 13) +
+    STL(KWH_bc ~ trend(window = 13) +
                    season(window = "periodic"),
     robust = TRUE)) %>%
   components() %>%
@@ -679,34 +746,142 @@ The ACF plot below tells us:
 
 ```{r}
 power %>% 
-  ACF(KWH, lag_max = 36) %>% 
+  ACF(KWH_bc, lag_max = 36) %>% 
   autoplot()
 ```
 
-One differencing will be required.
+One differencing will be required. A new tsibble is created which contains only the `KWH` and Box-Cox transformed `KWH_bc` variable. The first observation is removed using `slice()` because it contains NA values for `KWH` and `KWH_bc` resulting from the differencing performed. The `ndiffs()` function is run again to confirm the new tsibble created does not need another round of differencing.
+
 ```{r}
-ndiffs(power$KWH)
+ndiffs(power$KWH_bc)
 
 #need to add differenced data
 diff_power <- power %>% 
   mutate(diff_KWH= difference(KWH), diff_KWH_bc = difference(KWH_bc)) %>% 
-  select(-KWH, -KWH_bc)
+  #remove unecessary columns
+  select(-KWH, -KWH_bc) %>% 
+  #first observation is NA due to differencing so remove
+  slice(-1)
 
-ndiffs(diff_power$diff_KWH)
+ndiffs(diff_power$diff_KWH_bc)
 ```
+
+### Model
+
+Next the `diff_power` is split to create a training data set, `diff_train`. The power data is highly seasonal and resembles the high seasonality noted in the previous problem. As such, a similar approach will be taken in terms of running the same models, however use of a Holt's-Winters' additive ETS model has been included. 
+
+```{r fig.height=10, fig.width=15, message=FALSE, warning=FALSE}
+#Differenced data for arima
+
+#split
+diff_train <- diff_power %>% 
+  filter(year(Month) < 2013)
+
+#models
+diff_fit <- diff_train %>% 
+    model(
+    ARIMA = ARIMA(diff_KWH),
+    `Auto ARIMA` = ARIMA(diff_KWH, stepwise = FALSE, approx = FALSE)
+  )
+
+#forecast of 2013
+diff_fc <- diff_fit %>% 
+  forecast(h = "1 year")
+
+#plot
+diff_fc %>%
+  autoplot(diff_power, level = NULL)+
+  facet_wrap( ~ .model, scales = "free_y") +
+  guides(colour = guide_legend(title = "Forecast"))+
+  labs(title= "KWH Forecasts",
+       subtitle = "January 2013 - December 2013")+
+  xlab("Month") +
+  ylab("KWH in Thousands") 
+```
+
+```{r fig.height=10, fig.width=15, message=FALSE, warning=FALSE}
+#split
+train <- power %>% 
+  filter(year(Month) < 2013)
+
+#models
+fit <- train %>% 
+    model(
+    ETS = ETS(KWH),
+    `Additive ETS` = ETS(KWH ~ error("A") + trend("A") + season("A")),
+    SNAIVE = SNAIVE(KWH)
+  )
+
+#forecast of 2013
+fc <- fit %>% 
+  forecast(h = "1 year")
+
+#plot
+fc %>%
+  autoplot(power, level = NULL)+
+  facet_wrap( ~ .model, scales = "free_y") +
+  guides(colour = guide_legend(title = "Forecast"))+
+  labs(title= "KWH Forecasts",
+       subtitle = "January 2013 - December 2013")+
+  xlab("Month") +
+  ylab("KWH in Thousands") 
+```
+
+
+### Evaluate
+
+The `accuracy()` function is used to determine which model performed best based on their metrics. In review of the metrics, the Additive ETS model out performed all other models with lower RMSE with exception to the SNAIVE that has a the lowest MAE.
 
 ```{r}
+#find ARIMA RMSE, MAE
+accuracy(diff_fc, diff_power) %>%
+  select(.model, RMSE:MAE)
 
+#find other RMSE, MAE
+accuracy(fc, power) %>%
+  select(.model, RMSE:MAE)
 ```
 
 
+### Forecast
 
-## Part C – BONUS
+Finally the forecast values and plot are generated using the Additive ETS Forecast.
 
-Optional (part or all)
- 
-Part C consists of two data sets.  These are simple 2 columns sets, however they have different time stamps.  Your optional assignment is to time-base sequence the data and aggregate based on hour (example of what this looks like, follows).  Note for multiple recordings within an hour, take the mean.  Then to determine if the data is stationary and can it be forecast.  If so, provide a week forward forecast and present results via Rpubs and .rmd and the forecast in an Excel readable file.   
+```{r message=FALSE, warning=FALSE}
+#reproduce the mode using the original dataset 
+power_ETS_fit <- power %>% 
+  model(`Additive ETS` = ETS(KWH ~ error("A") + trend("A") + season("A")))
 
+#generate the values
+power_EST_forecast <- power_ETS_fit %>% 
+  forecast(h=12)
+
+#plot
+power_EST_forecast %>% 
+  autoplot(power) +
+  labs(title = "Monthly Residential Power Usage",
+       subtitle = "Additive ETS Forecast 2014",
+       y = "KWH in Thousands")
+```
+
+Lastly, the values of the forecast are saved into .CSV format for submission.
+
+```{r}
+#convert to df and select only the columns needed
+power_forecast_values <- as.data.frame(power_EST_forecast) %>% 
+  select(Month, .mean)
+
+#fix column names
+colnames(power_forecast_values) <- c('Month', 'KWH Forecast')
+
+power_forecast_values
+
+#save to csv
+write_excel_csv(power_forecast_values, "power_forecast.csv")
+```
+
+
+## References
 
 
 <!------- Below is for removing excessive space in Rmarkdown | HTML formatting -------->
