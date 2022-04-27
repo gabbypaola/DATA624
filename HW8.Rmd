@@ -1,0 +1,249 @@
+---
+title: "DATA 624 | Predictive Analytics"
+author: "Gabriella Martinez"
+date: "`r Sys.Date()`"
+output:
+      html_document:
+        toc: yes
+        toc_float: yes
+        theme: yeti
+        highlight: kate
+        font-family: "Arial"
+        code_folding: show
+---
+
+# Homework 8: Non-Linear Regression
+## Instructions
+
+In Kuhn and Johnson do problems 7.2 and 7.5. There are only two but they consist of many parts.  Please submit a link to your Rpubs and submit the .rmd file as well.
+
+## Packages
+```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+library(AppliedPredictiveModeling)
+library(dplyr)
+library(forecast)
+library(ggplot2)
+library(tidyr)
+library(mice)
+library(corrplot)
+library(MASS)
+library(mlbench)
+library(caret)
+library(earth)
+library(RANN)
+```
+
+### 7.2
+
+**Friedman (1991) introduced several benchmark data sets create by simulation. One of these simulations used the following nonlinear equation to create data:**
+
+$y = 10 sin(\pi x_1x_2) + 20(x_3 − 0.5)^2 + 10x_4 + 5x_5 + N(0, \sigma^2)$
+
+**where the x values are random variables uniformly distributed between [0, 1] (there are also 5 other non-informative variables also created in the simulation). The package mlbench contains a function called mlbench.friedman1 that simulates these data:**
+
+```{r message=FALSE, warning=FALSE}
+set.seed(200)
+
+trainingData = mlbench.friedman1(200, sd = 1)
+## We convert the 'x' data from a matrix to a data frame
+## One reason is that this will give the columns names.
+trainingData$x = data.frame(trainingData$x)
+## Look at the data using
+featurePlot(trainingData$x, trainingData$y)
+## or other methods.
+```
+
+
+
+```{r message=FALSE, warning=FALSE}
+## This creates a list with a vector 'y' and a matrix
+## of predictors 'x'. Also simulate a large test set to
+## estimate the true error rate with good precision:
+testData = mlbench.friedman1(5000, sd = 1)
+testData$x = data.frame(testData$x)
+```
+
+
+**(a) Tune several models on these data.**
+
+**For example:**
+
+```{r message=FALSE, warning=FALSE}
+knnModel <- train(x = trainingData$x, y = trainingData$y,
+                  method = "knn", 
+                  preProc = c("center", "scale"), 
+                  tuneLength = 10)
+
+knnPred <- predict(knnModel, newdata = testData$x)
+postResample(pred = knnPred, obs = testData$y)
+```
+
+#### MARS
+
+```{r}
+marsGrid <- expand.grid(.degree = 1:2, .nprune = 2:38)
+set.seed(100)
+
+marsFit <- earth(trainingData$x, trainingData$y)
+
+marsPred <- predict(marsFit, newdata = testData$x)
+postResample(pred = marsPred, obs = testData$y)
+```
+
+#### MARS Tuned
+
+```{r}
+marsGrid <- expand.grid(.degree = 1:2, .nprune = 2:38)
+set.seed(100)
+
+marsTuned <- train(trainingData$x, trainingData$y, method = "earth",
+                   tuneGrid = marsGrid,
+                   trControl = trainControl(method = "cv"))
+
+marsTunePred <- predict(marsTuned, newdata = testData$x)
+postResample(pred = marsTunePred, obs = testData$y)
+```
+
+#### SVM Tuned
+
+Using the example in the book on page 167, an SVM model with tuning is created.
+```{r}
+svmRTuned <- train(trainingData$x, trainingData$y,
+                   method = "svmRadial",
+                   preProcess = c("center", "scale"),
+                   tuneLength = 15,
+                   trControl = trainControl(method = "cv"))
+
+svmPred <- predict(svmRTuned, newdata = testData$x)
+postResample(svmPred, testData$y)
+```
+
+
+**(b) Which models appear to give the best performance? Does MARS select the informative predictors (those named X1–X5)?**
+
+Of the models run, the model that appears to give the best performance is the tuned MARS model with an R-squared value of 0.9460. Yes, the MARS model selects the informative predictors X1-X5.
+
+### 7.5
+
+**Exercise 6.3 describes data for a chemical manufacturing process. Use the same data imputation, data splitting, and pre-processing steps as before and train several nonlinear regression models.**
+
+```{r}
+#load data
+data(ChemicalManufacturingProcess)
+```
+
+```{r}
+#impute using caret
+imputed_data <- preProcess(ChemicalManufacturingProcess, "knnImpute")
+full_data <- predict(imputed_data, ChemicalManufacturingProcess)
+
+#find low values
+low_values <- nearZeroVar(full_data)
+#remove low frequency columns using baser df[row,columns]
+chem_data <- full_data[,-low_values]
+
+#split using caret
+index_chem <- createDataPartition(chem_data$Yield , p=.8, list=F)
+
+train_chem <-  chem_data[index_chem,] 
+test_chem <- chem_data[-index_chem,]
+```
+
+
+**(a) Which nonlinear regression model gives the optimal resampling and test set performance?**
+
+The tuned Neural Network give the optimal RMSE and R squared values with an RMSE of 0.5299143, and an R squared value of 0.7655831.
+
+#### KNN
+
+```{r}
+knnModel <- train(Yield~., 
+                    data = train_chem,
+                    method = "knn",
+                    preProc = c("center", "scale"), 
+                    tuneLength = 10)
+
+knnPred <- predict(knnModel,  test_chem)
+postResample(pred = knnPred, obs = test_chem$Yield)
+```
+
+#### Tuned Neural Network
+
+```{r}
+nnetGrid <- expand.grid(.decay = c(0, 0.01, .1),
+                        .size = c(1:10), .bag = FALSE)
+
+nnetTune <- train(Yield~., 
+                  data = train_chem, 
+                  method = "avNNet", 
+                  tuneGrid = nnetGrid,
+                  trControl = trainControl(method = "cv"), 
+                  linout = TRUE,trace = FALSE,
+                  MaxNWts = 10 * (ncol(train_chem) + 1) + 10 + 1, 
+                  maxit = 500)
+
+nnetPred <- predict(nnetTune,  test_chem)
+postResample(predict(nnetTune,  test_chem), test_chem$Yield)
+```
+
+#### MARS Tuned
+
+```{r}
+marsTuned_chem <- train(Yield~. ,
+                  data = train_chem,
+                   method = "earth",
+                   tuneGrid = marsGrid,
+                   trControl = trainControl(method = "cv"))
+
+marsTunePred_chem <- predict(marsTuned_chem,  test_chem)
+postResample(marsTunePred_chem, test_chem$Yield)
+```
+
+#### SVM Tuned
+
+```{r}
+svmTuned_chem <- train(Yield~. ,
+                  data = train_chem,
+                   method = "svmRadial",
+                   tuneLength = 15,
+                   trControl = trainControl(method = "cv"))
+
+svmTunePred_chem <- predict(svmTuned_chem,  test_chem)
+postResample(svmTunePred_chem, test_chem$Yield)
+```
+
+
+
+**(b) Which predictors are most important in the optimal nonlinear regression model? Do either the biological or process variables dominate the list? How do the top ten important predictors compare to the top ten predictors from the optimal linear model?**
+
+There are a total of 12 `ManufacturingProcess` predictors in the twenty listed below in the output of `varImp` and 8 `BiologicalMaterial`. There are 6 `ManufacturingProcess` in the top 10 with the first two being `ManufacturingProcess32` and `ManufacturingProcess36`. 
+The overall split of `ManufacturingProcess` and `BiologicalMaterial` predictors remained the same with 12 `ManufacturingProcess` and 8 `BiologicalMaterial` in the top 20 for both the linear and non-linear model. The top 10 predictors for linear and non-linear model do have some difference where the linear model has 8 `ManufacturingProcess` predictors and the non-linear with 6.
+
+```{r}
+plot(varImp(nnetTune), top=10)
+```
+
+
+**(c) Explore the relationships between the top predictors and the response for the predictors that are unique to the optimal nonlinear regression model. Do these plots reveal intuition about the biological or process predictors and their relationship with yield?**  
+
+Using the correlation matrix below, the Yield response variable doesn’t have strong correlations with many of the important predictors identified in the previous step. The strongest positive correlations are with `ManufacturingProcess32` and `ManufacturingProcess09` with correlation values 0.61 and 0.50 respectively. The strongest negative correlations are with `ManufacturingProcess36` and `ManufacturingProcess13` with correlations values -0.53 and -0.50, respectively. The response variable Yield does not have strong correlations with the important Biological Material predictors identified in the previous step.
+
+```{r fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
+corr_vals <- chem_data %>% 
+  dplyr::select('Yield', 'ManufacturingProcess32','ManufacturingProcess36',
+         'BiologicalMaterial06','ManufacturingProcess13',
+         'BiologicalMaterial03','ManufacturingProcess17',
+         'BiologicalMaterial02','BiologicalMaterial12',
+         'ManufacturingProcess09','ManufacturingProcess31')
+
+corr_plot_vals <- cor(corr_vals)
+
+corrplot.mixed(corr_plot_vals, tl.col = 'black', tl.pos = 'lt', 
+         upper = "number", lower="circle")
+```
+
+
+
+<!------- Below is for removing excessive space in Rmarkdown | HTML formatting -------->
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
