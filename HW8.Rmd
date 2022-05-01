@@ -127,12 +127,11 @@ Of the models run, the model that appears to give the best performance is the tu
 
 **Exercise 6.3 describes data for a chemical manufacturing process. Use the same data imputation, data splitting, and pre-processing steps as before and train several nonlinear regression models.**
 
+
 ```{r}
 #load data
 data(ChemicalManufacturingProcess)
-```
 
-```{r}
 #impute using caret
 imputed_data <- preProcess(ChemicalManufacturingProcess, "knnImpute")
 full_data <- predict(imputed_data, ChemicalManufacturingProcess)
