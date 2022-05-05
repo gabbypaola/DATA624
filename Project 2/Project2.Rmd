@@ -56,6 +56,36 @@ print(dfSummary(train), file = '~/train_summary.html')
 ```
 [`train` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/train_summary.html) 
 
+```{r}
+DataExplorer::plot_histogram(train, nrow = 3L, ncol = 4L)
+```
+
+```{r}
+stats <- descr(train,
+  headings = FALSE, #remove headings
+  stats = "common",# most common descriptive statistics, default is all
+  transpose = TRUE #allows for better display due to large amount of variables
+  )
+dfstats <- as.data.frame.matrix(stats)
+
+dfstats$rightskew <- dfstats$Mean > dfstats$Median
+dfstats$rightamount <- round(dfstats$Mean - dfstats$Median, 4)
+
+dfstats$leftskew <- dfstats$Mean < dfstats$Median
+dfstats$leftamount <- round(dfstats$Median- dfstats$Mean , 4)
+```
+
+```{r}
+dfstats
+```
+
+From the above, variables in the training data set exhibit the follow skews in distribution:
+
+- normal:  `Carb.Pressure`, `Carb.Temp`, `Fill.Ounces`, `PC.Volume`, `PH` (response variable)
+
+- left-skew:  `Carb.Flow`, `Filler.Speed`, `Mnf.Flow`, `MFR`, `Bowl.Setpoint`, `Filler.Level`, `Hyd.Pressure2`, `Hyd.Pressure3`, `Usage.cont`, `Carb.Pressure1`, `Filler.Speed`
+
+- right-skew: `Pressure.Setpoint`, `Fill.Pressure`, `Hyd.Pressure1`, `Temperature`, `Carb.Volume`, `PSC`, `PSC.CO2`, `PSC.Fill`, `Balling`, `Density`, `Hyd.Pressure4`, `Air.Pressurer`, `Alch.Rel`, `Carb.Rel`, `Oxygen.Filler`, `Balling.Lvl`, `Pressure.Vacuum`
 
 #### Test
 ```{r}
@@ -70,7 +100,10 @@ NAs in Test data set
 sapply(test, function(x) sum(is.na(x)))
 ```
 
-
+```{r message=FALSE, warning=FALSE, include=FALSE}
+print(dfSummary(test), file = '~/test_summary.html')
+```
+[`test` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/test_summary.html) 
 
 ## Exploratory Data Analysis
 
