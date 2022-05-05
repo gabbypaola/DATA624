@@ -1,0 +1,63 @@
+---
+title: "DATA 624 | Predictive Analytics"
+author: "Gehad Gad, Karim Hammoud, Gabriella Martinez"
+date: "`r Sys.Date()`"
+output:
+      html_document:
+        toc: yes
+        toc_float: yes
+        theme: yeti
+        highlight: kate
+        font-family: "Arial"
+        code_folding: hide
+---
+
+# Project 2
+## Instructions
+
+This is role playing.  I am your new boss.  I am in charge of production at ABC Beverage and you are a team of data scientists reporting to me.  My leadership has told me that new regulations are requiring us to understand our manufacturing process, the **predictive factors and be able to report to them our predictive model of PH.**  
+
+Please use the historical data set I am providing. Build and report the factors in BOTH a technical and non-technical report.  I like to use Word and Excel.  Please provide your non-technical report in a business friendly readable document and your predictions in an Excel readable format. The technical report should show clearly the models you tested and how you selected your final approach.  
+
+Please submit both Rpubs links and .rmd files or other readable formats for technical and non-technical reports.  Also submit the excel file showing the prediction of your models for pH.
+
+## Packages
+```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
+library(openxlsx)
+library(dplyr)
+library(forecast)
+library(ggplot2)
+library(tidyr)
+library(mice)
+library(corrplot)
+library(MASS)
+library(earth)
+library(RANN)
+```
+
+```{r}
+train <- read.xlsx("TrainingData.xlsx")
+glimpse(train)
+sapply(train, function(x) sum(is.na(x)))
+```
+
+```{r}
+test <- read.xlsx("TestData.xlsx")
+glimpse(test)
+sapply(test, function(x) sum(is.na(x)))
+```
+
+```{r}
+
+```
+
+
+
+## Exploratory Data Analysis
+
+## Models
+
+
+<!------- Below is for removing excessive space in Rmarkdown | HTML formatting -------->
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
