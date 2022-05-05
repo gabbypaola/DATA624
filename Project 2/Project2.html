@@ -558,42 +558,19 @@ div.tocify {
 ## PSC.Fill             -0.0154
 ## Temperature          -0.3675
 ## Usage.cont            0.7970</code></pre>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(train)</span></code></pre></div>
-<pre><code>##  [1] &quot;Brand.Code&quot;        &quot;Carb.Volume&quot;       &quot;Fill.Ounces&quot;      
-##  [4] &quot;PC.Volume&quot;         &quot;Carb.Pressure&quot;     &quot;Carb.Temp&quot;        
-##  [7] &quot;PSC&quot;               &quot;PSC.Fill&quot;          &quot;PSC.CO2&quot;          
-## [10] &quot;Mnf.Flow&quot;          &quot;Carb.Pressure1&quot;    &quot;Fill.Pressure&quot;    
-## [13] &quot;Hyd.Pressure1&quot;     &quot;Hyd.Pressure2&quot;     &quot;Hyd.Pressure3&quot;    
-## [16] &quot;Hyd.Pressure4&quot;     &quot;Filler.Level&quot;      &quot;Filler.Speed&quot;     
-## [19] &quot;Temperature&quot;       &quot;Usage.cont&quot;        &quot;Carb.Flow&quot;        
-## [22] &quot;Density&quot;           &quot;MFR&quot;               &quot;Balling&quot;          
-## [25] &quot;Pressure.Vacuum&quot;   &quot;PH&quot;                &quot;Oxygen.Filler&quot;    
-## [28] &quot;Bowl.Setpoint&quot;     &quot;Pressure.Setpoint&quot; &quot;Air.Pressurer&quot;    
-## [31] &quot;Alch.Rel&quot;          &quot;Carb.Rel&quot;          &quot;Balling.Lvl&quot;</code></pre>
-<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>skew <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&#39;Carb.Flow&#39;</span>, <span class="st">&#39;Filler.Speed&#39;</span>, <span class="st">&#39;Mnf.Flow&#39;</span>, <span class="st">&#39;MFR&#39;</span>, <span class="st">&#39;Bowl.Setpoint&#39;</span>, <span class="st">&#39;Filler.Level&#39;</span>, <span class="st">&#39;Hyd.Pressure2&#39;</span>, <span class="st">&#39;Hyd.Pressure3&#39;</span>,<span class="st">&#39;Pressure.Setpoint&#39;</span>, <span class="st">&#39;Fill.Pressure&#39;</span>, <span class="st">&#39;Hyd.Pressure1&#39;</span>)</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>nonskew <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">colnames</span>(train), skew)</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>nonskew</span></code></pre></div>
-<pre><code>##  [1] &quot;Brand.Code&quot;      &quot;Carb.Volume&quot;     &quot;Fill.Ounces&quot;     &quot;PC.Volume&quot;      
-##  [5] &quot;Carb.Pressure&quot;   &quot;Carb.Temp&quot;       &quot;PSC&quot;             &quot;PSC.Fill&quot;       
-##  [9] &quot;PSC.CO2&quot;         &quot;Carb.Pressure1&quot;  &quot;Hyd.Pressure4&quot;   &quot;Temperature&quot;    
-## [13] &quot;Usage.cont&quot;      &quot;Density&quot;         &quot;Balling&quot;         &quot;Pressure.Vacuum&quot;
-## [17] &quot;PH&quot;              &quot;Oxygen.Filler&quot;   &quot;Air.Pressurer&quot;   &quot;Alch.Rel&quot;       
-## [21] &quot;Carb.Rel&quot;        &quot;Balling.Lvl&quot;</code></pre>
-<p>From the above, the distributions are noted as:</p>
+<p>From the above, variables in the training data set exhibit the follow skews in distribution:</p>
 <ul>
-<li>normal:<br />
-</li>
-<li>left-skew: <code>Carb.Flow</code>, <code>Filler.Speed</code>, <code>Mnf.Flow</code>, <code>MFR</code>, <code>Bowl.Setpoint</code>, <code>Filler.Level</code>, <code>Hyd.Pressure2</code>, <code>Hyd.Pressure3</code></li>
-<li>right-skew: <code>Pressure.Setpoint</code>, <code>Fill.Pressure</code>, <code>Hyd.Pressure1</code></li>
+<li><p>normal: <code>Carb.Pressure</code>, <code>Carb.Temp</code>, <code>Fill.Ounces</code>, <code>PC.Volume</code>, <code>PH</code> (response variable)</p></li>
+<li><p>left-skew: <code>Carb.Flow</code>, <code>Filler.Speed</code>, <code>Mnf.Flow</code>, <code>MFR</code>, <code>Bowl.Setpoint</code>, <code>Filler.Level</code>, <code>Hyd.Pressure2</code>, <code>Hyd.Pressure3</code>, <code>Usage.cont</code>, <code>Carb.Pressure1</code>, <code>Filler.Speed</code></p></li>
+<li><p>right-skew: <code>Pressure.Setpoint</code>, <code>Fill.Pressure</code>, <code>Hyd.Pressure1</code>, <code>Temperature</code>, <code>Carb.Volume</code>, <code>PSC</code>, <code>PSC.CO2</code>, <code>PSC.Fill</code>, <code>Balling</code>, <code>Density</code>, <code>Hyd.Pressure4</code>, <code>Air.Pressurer</code>, <code>Alch.Rel</code>, <code>Carb.Rel</code>, <code>Oxygen.Filler</code>, <code>Balling.Lvl</code>, <code>Pressure.Vacuum</code></p></li>
 </ul>
 </div>
 <div id="test" class="section level4">
 <h4>Test</h4>
-<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">#load data</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> <span class="fu">read.xlsx</span>(<span class="st">&quot;TestData.xlsx&quot;</span>)</span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="co">#review </span></span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="fu">glimpse</span>(test)</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">#load data</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> <span class="fu">read.xlsx</span>(<span class="st">&quot;TestData.xlsx&quot;</span>)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">#review </span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="fu">glimpse</span>(test)</span></code></pre></div>
 <pre><code>## Rows: 267
 ## Columns: 33
 ## $ Brand.Code        &lt;chr&gt; &quot;D&quot;, &quot;A&quot;, &quot;B&quot;, &quot;B&quot;, &quot;B&quot;, &quot;B&quot;, &quot;A&quot;, &quot;B&quot;, &quot;A&quot;, &quot;D&quot;, &quot;B~
@@ -630,8 +607,8 @@ div.tocify {
 ## $ Carb.Rel          &lt;dbl&gt; 5.34, 5.58, 5.34, 5.50, 5.38, 5.42, 5.46, 5.42, 5.44~
 ## $ Balling.Lvl       &lt;dbl&gt; 1.48, 3.04, 1.46, 1.48, 1.46, 1.44, 3.02, 3.00, 3.10~</code></pre>
 <p>NAs in Test data set</p>
-<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co">#NA counts by column</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(test, <span class="cf">function</span>(x) <span class="fu">sum</span>(<span class="fu">is.na</span>(x)))</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co">#NA counts by column</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(test, <span class="cf">function</span>(x) <span class="fu">sum</span>(<span class="fu">is.na</span>(x)))</span></code></pre></div>
 <pre><code>##        Brand.Code       Carb.Volume       Fill.Ounces         PC.Volume 
 ##                 8                 1                 6                 4 
 ##     Carb.Pressure         Carb.Temp               PSC          PSC.Fill 
