@@ -20,15 +20,15 @@ This is role playing.  I am your new boss.  I am in charge of production at ABC 
 Please use the historical data set I am providing. Build and report the factors in BOTH a technical and non-technical report.  I like to use Word and Excel.  Please provide your non-technical report in a business friendly readable document and your predictions in an Excel readable format. The technical report should show clearly the models you tested and how you selected your final approach.  
 
 Please submit both Rpubs links and .rmd files or other readable formats for technical and non-technical reports.  Also submit the excel file showing the prediction of your models for pH.
-
-## Packages
-```{r message=FALSE, warning=FALSE, class.source = 'fold-show'}
-library(openxlsx)
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(readr)
 library(DataExplorer)
 library(summarytools)
+library(Amelia)
+library(VIM)
 library(dplyr)
 library(forecast)
-library(ggplot2)
 library(tidyr)
 library(mice)
 library(corrplot)
@@ -37,19 +37,44 @@ library(earth)
 library(RANN)
 ```
 
-#### Train
-```{r}
+## Exploratory Data Analysis
+
+### Load & Review Data
+```{r message=FALSE, warning=FALSE}
 #load data
-train <- read.xlsx("TrainingData.xlsx")
+train <- read.csv("TrainingData.csv")
 #review
 glimpse(train)
 ```
 
-NAs in Train data set 
-```{r}
+From the above it is noted that the `train` data set:
+
+- 2571 observations with 33 columns (32 predictor variables)
+- `Brand.Code` is character type and seems it is an unordered categorical variable which needs to be updated as such
+- 4 predictor variables are integer type: `Hyd.Pressure4`, `Filler.Speed`, `Carb.Flow`, `Bowl.Setpoint`, remaining are float
+- There are predictors with varying ranges for example: `Mnf. Flow` -100.20 to 229.40, `Carb.Flow` 26 to 5104, and `PSC` 0.002 to 0.270
+- NAs detected in the first few observations
+
+### Missing Values
+```{r message=FALSE, warning=FALSE, results=F}
 #NA counts by column
-sapply(train, function(x) sum(is.na(x)))
+#sapply(train, function(x) sum(is.na(x)))
+VIM::aggr(train, numbers=T, sortVars=T, bars = FALSE, border= 'white',
+          cex.axis = .6,
+          ylab=c("Proportion of NAs", "Combinations"))
 ```
+
+Based on the above: 
+
+- `MFR` variable is missing about 8% of its values  
+- `Filler.Speed` is missing about 2%  
+- 28 other variables missing about 1% or less of their values  
+- 3 variables appear to contain all their values (no NAs present) `Brand.Code`, `Pressure.Vacuum`, `Air.Pressurer`  
+
+
+### Distributions
+
+Next, the distributions of numerical response variable `PH`, the categorical predictor variable `Brand.Code` and remaining numerical predictor variables. 
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 print(dfSummary(train), file = '~/train_summary.html')
@@ -57,10 +82,22 @@ print(dfSummary(train), file = '~/train_summary.html')
 [`train` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/train_summary.html) 
 
 ```{r}
+summary(train)
+```
+
+Below is the distribution of the `Brand.Code` variable. The variable has 5 levels, one of which is empty and appears unlabeled. Of the codes, `Brand.Code` B has has the highest number of values, followed by D, C, A, and lastly the unlabeled `Brand.Code` observation.
+```{r}
+ggplot(train, aes(x=reorder(Brand.Code, Brand.Code, function(x)-length(x)))) +
+geom_bar() +  labs(x='Brand.Code')+
+labs(title= 'Brand.Code Distribution')
+```
+
+
+```{r message=FALSE, warning=FALSE}
 DataExplorer::plot_histogram(train, nrow = 3L, ncol = 4L)
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 stats <- descr(train,
   headings = FALSE, #remove headings
   stats = "common",# most common descriptive statistics, default is all
@@ -75,9 +112,6 @@ dfstats$leftskew <- dfstats$Mean < dfstats$Median
 dfstats$leftamount <- round(dfstats$Median- dfstats$Mean , 4)
 ```
 
-```{r}
-dfstats
-```
 
 From the above, variables in the training data set exhibit the follow skews in distribution:
 
@@ -87,17 +121,46 @@ From the above, variables in the training data set exhibit the follow skews in d
 
 - right-skew: `Pressure.Setpoint`, `Fill.Pressure`, `Hyd.Pressure1`, `Temperature`, `Carb.Volume`, `PSC`, `PSC.CO2`, `PSC.Fill`, `Balling`, `Density`, `Hyd.Pressure4`, `Air.Pressurer`, `Alch.Rel`, `Carb.Rel`, `Oxygen.Filler`, `Balling.Lvl`, `Pressure.Vacuum`
 
-#### Test
+
+### Update Data Types
+
+Next, the empty value in the `Brand.Code` variable is updated with the string "No Code". Additionally, the variable is updated to an unordered factor type variable. 
+
 ```{r}
+#add name to empty string
+train$Brand.Code[train$Brand.Code == ""] <- "No Code"
+
+#convert variable type to factor
+train <- train %>% 
+  dplyr::mutate(Brand.Code = factor(Brand.Code, 
+                         levels = c('No Code', 'A','B','C','D'), 
+                         ordered = FALSE))
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+#### Test
+```{r message=FALSE, warning=FALSE}
 #load data
-test <- read.xlsx("TestData.xlsx")
+test <- read.csv("TestData.csv")
 #review 
 glimpse(test)
 ```
+
 NAs in Test data set 
-```{r}
+```{r message=FALSE, warning=FALSE, results=F}
 #NA counts by column
-sapply(test, function(x) sum(is.na(x)))
+#sapply(test, function(x) sum(is.na(x)))
+VIM::aggr(test, numbers=T, sortVars=T, bars = FALSE, border= 'white',
+          cex.axis = .6,
+          ylab=c("Proportion of NAs", "Combinations"))
 ```
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
@@ -105,9 +168,22 @@ print(dfSummary(test), file = '~/test_summary.html')
 ```
 [`test` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/test_summary.html) 
 
-## Exploratory Data Analysis
+```{r}
 
-## Models
+```
+
+
+## Build Models
+
+### Model(s) A
+
+### Model(s) B
+
+### Model(s) C
+
+## Evaluate & Select Models
+
+## Predict PH Values
 
 
 <!------- Below is for removing excessive space in Rmarkdown | HTML formatting -------->
