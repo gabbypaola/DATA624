@@ -540,19 +540,19 @@ div.tocify {
 </div>
 <div id="update-data-types" class="section level3">
 <h3>Update Data Types</h3>
-<p>Next, the empty value in the <code>Brand.Code</code> variable is updated with the string “No Code”. Additionally, the variable is updated to an unordered factor type variable.</p>
+<p>Next, the empty value in the <code>Brand.Code</code> variable is updated with the string “Unknown”. Additionally, the variable is updated to an unordered factor type variable.</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co">#add name to empty string</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>train<span class="sc">$</span>Brand.Code[train<span class="sc">$</span>Brand.Code <span class="sc">==</span> <span class="st">&quot;&quot;</span>] <span class="ot">&lt;-</span> <span class="st">&quot;No Code&quot;</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>train<span class="sc">$</span>Brand.Code[train<span class="sc">$</span>Brand.Code <span class="sc">==</span> <span class="st">&quot;&quot;</span>] <span class="ot">&lt;-</span> <span class="st">&quot;Unknown&quot;</span></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co">#convert variable type to factor</span></span>
 <span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>train <span class="ot">&lt;-</span> train <span class="sc">%&gt;%</span> </span>
 <span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">Brand.Code =</span> <span class="fu">factor</span>(Brand.Code, </span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>                         <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&#39;A&#39;</span>,<span class="st">&#39;B&#39;</span>,<span class="st">&#39;C&#39;</span>,<span class="st">&#39;D&#39;</span>, <span class="st">&#39;No Code&#39;</span>), </span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>                         <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&#39;A&#39;</span>,<span class="st">&#39;B&#39;</span>,<span class="st">&#39;C&#39;</span>,<span class="st">&#39;D&#39;</span>, <span class="st">&#39;Unknown&#39;</span>), </span>
 <span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>                         <span class="at">ordered =</span> <span class="cn">FALSE</span>))</span></code></pre></div>
 </div>
-<div id="correlation-plot" class="section level3">
-<h3>Correlation Plot</h3>
-<p>The relationship between the variables are reviewed using a correlation plot in order to detect multicolliniarity within the training data set. Variables with correlation coefficients greater than 0.90 have been removed from the plot using <code>findCorrelation</code><a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>.</p>
+<div id="detect-multicoliniarity" class="section level3">
+<h3>Detect Multicoliniarity</h3>
+<p>The relationship between the variables are reviewed using a correlation plot in order to detect multicolliniarity within the training data set.</p>
 <div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>numeric_values <span class="ot">&lt;-</span> train </span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>numeric_values<span class="ot">&lt;-</span> numeric_values <span class="sc">%&gt;%</span> </span>
@@ -571,23 +571,24 @@ div.tocify {
 ## [5] &quot;Alch.Rel&quot;      &quot;Balling.Lvl&quot;</code></pre>
 </div>
 </div>
-<div id="build-model" class="section level2">
-<h2>Build Model</h2>
+<div id="build-models" class="section level2">
+<h2>Build Models</h2>
 <div id="pre-process-training-data" class="section level3">
 <h3>Pre-Process Training Data</h3>
-<p>Pre-processing is needed based on the distributions and missing values noted in the training data set for both linear and non-linear models. Random Forest models do not require pre-processing as in the cases of linear and non-linear models.</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">#pre-process for linear and non-linear</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co">#create split for evaluation</span></span></code></pre></div>
+<p>Pre-processing of the data is needed based on the distributions and missing values noted in the training data set.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">#pre-process</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>preprocessed_data <span class="ot">&lt;-</span> <span class="fu">preProcess</span>(train, <span class="at">method =</span> <span class="fu">c</span>(<span class="st">&quot;knnImpute&quot;</span>,<span class="st">&quot;nzv&quot;</span>, <span class="st">&quot;corr&quot;</span>))</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>full_data <span class="ot">&lt;-</span> <span class="fu">predict</span>(preprocessed_data, train)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="co">#create split for evaluation</span></span></code></pre></div>
 </div>
-<div id="models-a" class="section level3">
-<h3>Model(s) A</h3>
+<div id="linear-models" class="section level3">
+<h3>Linear Models</h3>
 </div>
-<div id="models-b" class="section level3">
-<h3>Model(s) B</h3>
+<div id="non-linear-models" class="section level3">
+<h3>Non-linear Models</h3>
 </div>
-<div id="models-c" class="section level3">
-<h3>Model(s) C</h3>
+<div id="tree-based-models" class="section level3">
+<h3>Tree Based Models</h3>
 </div>
 </div>
 <div id="evaluate-select-models" class="section level2">
@@ -595,8 +596,8 @@ div.tocify {
 </div>
 <div id="predict-ph-values" class="section level2">
 <h2>Predict PH Values</h2>
-<div id="load-and-revew-test-data" class="section level3">
-<h3>Load and Revew Test Data</h3>
+<div id="load-and-review-test-data" class="section level3">
+<h3>Load and Review Test Data</h3>
 <div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">#load test data</span></span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">&quot;TestData.csv&quot;</span>)</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="co">#review </span></span>
@@ -657,12 +658,6 @@ div.tocify {
 </div>
 </div>
 </div>
-</div>
-<div class="footnotes">
-<hr />
-<ol>
-<li id="fn1"><p><a href="https://www.rdocumentation.org/packages/caret/versions/6.0-92/topics/findCorrelation" class="uri">https://www.rdocumentation.org/packages/caret/versions/6.0-92/topics/findCorrelation</a><a href="#fnref1" class="footnote-back">↩︎</a></p></li>
-</ol>
 </div>
 
 

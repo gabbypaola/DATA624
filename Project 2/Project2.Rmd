@@ -37,6 +37,8 @@ library(earth)
 library(RANN)
 library(caret)
 library(car)
+library(forcats)
+library(RColorBrewer)
 ```
 
 ## Exploratory Data Analysis
@@ -126,25 +128,9 @@ From the above, variables in the training data set exhibit the follow skews in d
 - right-skew: `Pressure.Setpoint`, `Fill.Pressure`, `Hyd.Pressure1`, `Temperature`, `Carb.Volume`, `PSC`, `PSC.CO2`, `PSC.Fill`, `Balling`, `Density`, `Hyd.Pressure4`, `Air.Pressurer`, `Alch.Rel`, `Carb.Rel`, `Oxygen.Filler`, `Balling.Lvl`, `Pressure.Vacuum`
 
 
-### Update Data Types
+### Variable Correlations
 
-Next, the empty value in the `Brand.Code` variable is updated with the string "No Code". Additionally, the variable is updated to an unordered factor type variable. 
-
-```{r}
-#add name to empty string
-train$Brand.Code[train$Brand.Code == ""] <- "No Code"
-
-#convert variable type to factor
-train <- train %>% 
-  dplyr::mutate(Brand.Code = factor(Brand.Code, 
-                         levels = c('A','B','C','D', 'No Code'), 
-                         ordered = FALSE))
-```
-
-
-### Correlation Plot
-
-The relationship between the variables are reviewed using a correlation plot in order to detect multicolliniarity within the training data set. Variables with correlation coefficients greater than 0.90 have been removed from the plot using `findCorrelation`^[https://www.rdocumentation.org/packages/caret/versions/6.0-92/topics/findCorrelation].
+The relationship between the variables are reviewed using a correlation plot in order to detect multicolliniarity within the training data set. Based on the below, it looks like multicolliniarity is an issue provided the correlations between a lot of the predictor variables.
 
 ```{r fig.height=10, fig.width=12, message=FALSE, warning=FALSE}
 numeric_values <- train 
@@ -155,26 +141,66 @@ numeric_values<- numeric_values %>%
 
 train_cor <- cor(numeric_values)
 
-train_cor_filtered <- cor(train_cor[,-findCorrelation(train_cor,cutoff = 0.9,exact = TRUE)])
+#train_cor_filtered <- cor(train_cor[,-findCorrelation(train_cor,cutoff = 0.9,exact = TRUE)])
 
-corrplot(train_cor_filtered, tl.col = 'black')
+corrplot(train_cor, tl.col = 'black', col=brewer.pal(n=10, name="RdYlBu"))
 ```
 
-The features identified to have high pair-wise correlations are as follow:
+
 ```{r}
-setdiff(colnames(train_cor), colnames(train_cor_filtered))
+#The features identified to have high pair-wise correlations are as follow:
+#setdiff(colnames(train_cor), colnames(train_cor_filtered))
 ```
+
+
+```{r}
+ph_corr <- as.data.frame(cor(numeric_values[-1], numeric_values$PH))
+
+ph_corr <- cbind("Predictor" = rownames(ph_corr), ph_corr)
+rownames(ph_corr) <- 1:nrow(ph_corr) 
+
+ph_corr <- ph_corr[-24,]
+
+ggplot(ph_corr, aes(x=fct_reorder(factor(Predictor),V1), y = (V1))) +
+  geom_col(position="dodge", fill="steelblue") +
+  coord_flip()+
+  labs(title="Correlations to pH",
+    x="Predictors",
+    y="Correlation Coefficient")+
+    geom_text(aes(label = round(V1,2)), colour = "black", size = 3,
+              position = position_stack(vjust = 0.6))
+```
+
+
+
+
+### Update Data Types
+
+Next, the empty value in the `Brand.Code` variable is updated with the string "Unknown". Additionally, the variable is updated to an unordered factor type variable. 
+
+```{r}
+#add name to empty string
+train$Brand.Code[train$Brand.Code == ""] <- "Unknown"
+
+#convert variable type to factor
+train <- train %>% 
+  dplyr::mutate(Brand.Code = factor(Brand.Code, 
+                         levels = c('A','B','C','D', 'Unknown'), 
+                         ordered = FALSE))
+```
+
 
 
 ## Build Models
 
 ### Pre-Process Training Data
 
-Pre-processing is needed based on the distributions and missing values noted in the training data set for both linear and non-linear models. Random Forest models do not require pre-processing as in the cases of linear and non-linear models.
+Pre-processing of the data is needed based on the distributions and missing values noted in the training data set. The training data for linear and non-linear needs to be normalized where as the data does not need normalization for random forest models.
 
 ```{r}
-#pre-process for linear and non-linear
-
+#pre-process for linear and non-linear normailze distros, impute NAs, remove highly correlated vars
+preprocessed_data <- preProcess(train, method = c("knnImpute"))
+full_data <- predict(preprocessed_data, train)
 #create split for evaluation
 ```
 
@@ -184,6 +210,13 @@ Pre-processing is needed based on the distributions and missing values noted in 
 ### Non-linear Models
 
 ### Tree Based Models
+
+
+```{r}
+
+
+```
+
 
 ## Evaluate & Select Models
 
