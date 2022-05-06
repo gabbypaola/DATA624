@@ -36,6 +36,7 @@ library(MASS)
 library(earth)
 library(RANN)
 library(caret)
+library(car)
 ```
 
 ## Exploratory Data Analysis
@@ -140,6 +141,7 @@ train <- train %>%
                          ordered = FALSE))
 ```
 
+
 ### Correlation Plot
 
 The relationship between the variables are reviewed using a correlation plot in order to detect multicolliniarity within the training data set. Variables with correlation coefficients greater than 0.90 have been removed from the plot using `findCorrelation`^[https://www.rdocumentation.org/packages/caret/versions/6.0-92/topics/findCorrelation].
@@ -163,7 +165,7 @@ The features identified to have high pair-wise correlations are as follow:
 setdiff(colnames(train_cor), colnames(train_cor_filtered))
 ```
 
-### VIF Scores 
+
 
 ## Build Model
 
