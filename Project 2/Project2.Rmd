@@ -80,20 +80,22 @@ Next, the distributions of numerical response variable `PH`, the categorical pre
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 print(dfSummary(train), file = '~/train_summary.html')
 ```
-[`train` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/train_summary.html) 
+
+Additionally, using [`train` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/train_summary.html) the values, frequency of each values of the variables can be noted, as well as small visuals of thier distributions.
 
 ```{r}
 summary(train)
 ```
 
 Below is the distribution of the `Brand.Code` variable. The variable has 5 levels, one of which is empty and appears unlabeled. Of the codes, `Brand.Code` B has has the highest number of values, followed by D, C, A, and lastly the unlabeled `Brand.Code` observation.
+
 ```{r}
 ggplot(train, aes(x=reorder(Brand.Code, Brand.Code, function(x)-length(x)))) +
 geom_bar() +  labs(x='Brand.Code')+
 labs(title= 'Brand.Code Distribution')
 ```
 
-
+Next are the distributions for all the numeric variables.
 ```{r message=FALSE, warning=FALSE}
 DataExplorer::plot_histogram(train, nrow = 3L, ncol = 4L)
 ```
@@ -140,7 +142,7 @@ train <- train %>%
 
 ### Correlation Plot
 
-Next, the relationship between the variables is reviewed using a correlation plot in order to detect multicolliniarity within the training data set. Variables with correlation coefficients greater than 0.90 have been removed from the plot using `findCorrelation`^[https://www.rdocumentation.org/packages/caret/versions/6.0-92/topics/findCorrelation].
+The relationship between the variables are reviewed using a correlation plot in order to detect multicolliniarity within the training data set. Variables with correlation coefficients greater than 0.90 have been removed from the plot using `findCorrelation`^[https://www.rdocumentation.org/packages/caret/versions/6.0-92/topics/findCorrelation].
 
 ```{r fig.height=10, fig.width=12, message=FALSE, warning=FALSE}
 numeric_values <- train 
@@ -162,15 +164,18 @@ setdiff(colnames(train_cor), colnames(train_cor_filtered))
 ```
 
 
+## Build Model
 
- 
+### Pre-Process Training Data
+
+Pre-processing is needed based on the distributions and missing values noted in the training data set for both linear and non-linear models. Random Forest models do not require pre-processing as in the cases of linear and non-linear models.
 
 ```{r}
+#pre-process for linear and non-linear
 
+#create split for evaluation
 ```
 
-
-## Build Models
 
 ### Model(s) A
 
@@ -203,6 +208,14 @@ VIM::aggr(test, numbers=T, sortVars=T, bars = FALSE, border= 'white',
 print(dfSummary(test), file = '~/test_summary.html')
 ```
 [`test` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/test_summary.html)
+
+### Generate Predictions
+
+### Generate Excel file
+
+```{r}
+#write_excel_csv(name_of_datafram, "name_of_csv_file.csv")
+```
 
 
 <!------- Below is for removing excessive space in Rmarkdown | HTML formatting -------->
