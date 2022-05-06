@@ -163,6 +163,7 @@ The features identified to have high pair-wise correlations are as follow:
 setdiff(colnames(train_cor), colnames(train_cor_filtered))
 ```
 
+### VIF Scores 
 
 ## Build Model
 
