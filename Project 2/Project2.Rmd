@@ -140,6 +140,8 @@ train <- train %>%
 
 ### Correlation Plot
 
+Next, the relationship between the variables is reviewed using a correlation plot in order to detect multicolliniarity within the training data set. Variables with correlation coefficients greater than 0.90 have been removed from the plot.
+
 ```{r fig.height=10, fig.width=12, message=FALSE, warning=FALSE}
 numeric_values <- train 
 
@@ -147,19 +149,16 @@ numeric_values<- numeric_values %>%
   select_if(is.numeric) %>% 
   na.omit()
 
-#corr_data <- findCorrelation(cor(numeric_values), cutoff = 0.8)
-
-#numeric_values <- numeric_values[,-corr_data]
-
 train_cor <- cor(numeric_values)
 
+train_cor_filtered <- train_cor[,-findCorrelation(cor(numeric_values), cutoff = 0.9)]
 
+corrplot(train_cor_filtered, tl.col = 'black')
+```
 
-#findCorrelation(cor(numeric_values), cutoff = 0.9)
-
-
-corrplot(cor(numeric_values[,-findCorrelation(cor(numeric_values), 
-                                              cutoff = 0.9)]), tl.col = 'black')
+The features identified to have high pair-wise correlations are as follow:
+```{r}
+setdiff(colnames(train_cor), colnames(train_cor_filtered))
 ```
 
 
