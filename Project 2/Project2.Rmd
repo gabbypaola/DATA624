@@ -166,7 +166,6 @@ setdiff(colnames(train_cor), colnames(train_cor_filtered))
 ```
 
 
-
 ## Build Model
 
 ### Pre-Process Training Data
@@ -180,17 +179,17 @@ Pre-processing is needed based on the distributions and missing values noted in 
 ```
 
 
-### Model(s) A
+### Linear Models
 
-### Model(s) B
+### Non-linear Models
 
-### Model(s) C
+### Tree Based Models
 
 ## Evaluate & Select Models
 
 ## Predict PH Values
 
-### Load and Revew Test Data
+### Load and Review Test Data
 ```{r message=FALSE, warning=FALSE}
 #load test data
 test <- read.csv("TestData.csv")
