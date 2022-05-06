@@ -40,7 +40,7 @@ library(caret)
 
 ## Exploratory Data Analysis
 
-### Load & Review Data
+### Load & Review Train Data
 ```{r message=FALSE, warning=FALSE}
 #load data
 train <- read.csv("TrainingData.csv")
@@ -140,7 +140,7 @@ train <- train %>%
 
 ### Correlation Plot
 
-Next, the relationship between the variables is reviewed using a correlation plot in order to detect multicolliniarity within the training data set. Variables with correlation coefficients greater than 0.90 have been removed from the plot.
+Next, the relationship between the variables is reviewed using a correlation plot in order to detect multicolliniarity within the training data set. Variables with correlation coefficients greater than 0.90 have been removed from the plot using `findCorrelation`^[https://www.rdocumentation.org/packages/caret/versions/6.0-92/topics/findCorrelation].
 
 ```{r fig.height=10, fig.width=12, message=FALSE, warning=FALSE}
 numeric_values <- train 
@@ -151,7 +151,7 @@ numeric_values<- numeric_values %>%
 
 train_cor <- cor(numeric_values)
 
-train_cor_filtered <- train_cor[,-findCorrelation(cor(numeric_values), cutoff = 0.9)]
+train_cor_filtered <- cor(train_cor[,-findCorrelation(train_cor,cutoff = 0.9,exact = TRUE)])
 
 corrplot(train_cor_filtered, tl.col = 'black')
 ```
@@ -163,27 +163,7 @@ setdiff(colnames(train_cor), colnames(train_cor_filtered))
 
 
 
-#### Test
-```{r message=FALSE, warning=FALSE}
-#load data
-test <- read.csv("TestData.csv")
-#review 
-glimpse(test)
-```
-
-NAs in Test data set 
-```{r message=FALSE, warning=FALSE, results=F}
-#NA counts by column
-#sapply(test, function(x) sum(is.na(x)))
-VIM::aggr(test, numbers=T, sortVars=T, bars = FALSE, border= 'white',
-          cex.axis = .6,
-          ylab=c("Proportion of NAs", "Combinations"))
-```
-
-```{r message=FALSE, warning=FALSE, include=FALSE}
-print(dfSummary(test), file = '~/test_summary.html')
-```
-[`test` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/test_summary.html) 
+ 
 
 ```{r}
 
@@ -201,6 +181,28 @@ print(dfSummary(test), file = '~/test_summary.html')
 ## Evaluate & Select Models
 
 ## Predict PH Values
+
+### Load and Revew Test Data
+```{r message=FALSE, warning=FALSE}
+#load test data
+test <- read.csv("TestData.csv")
+#review 
+glimpse(test)
+```
+
+```{r message=FALSE, warning=FALSE, results=F}
+#NAs in Test data set 
+#NA counts by column
+#sapply(test, function(x) sum(is.na(x)))
+VIM::aggr(test, numbers=T, sortVars=T, bars = FALSE, border= 'white',
+          cex.axis = .6,
+          ylab=c("Proportion of NAs", "Combinations"))
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+print(dfSummary(test), file = '~/test_summary.html')
+```
+[`test` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/test_summary.html)
 
 
 <!------- Below is for removing excessive space in Rmarkdown | HTML formatting -------->
