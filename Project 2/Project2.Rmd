@@ -166,7 +166,7 @@ setdiff(colnames(train_cor), colnames(train_cor_filtered))
 ```
 
 
-## Build Model
+## Build Models
 
 ### Pre-Process Training Data
 
