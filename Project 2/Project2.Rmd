@@ -35,6 +35,7 @@ library(corrplot)
 library(MASS)
 library(earth)
 library(RANN)
+library(caret)
 ```
 
 ## Exploratory Data Analysis
@@ -133,16 +134,33 @@ train$Brand.Code[train$Brand.Code == ""] <- "No Code"
 #convert variable type to factor
 train <- train %>% 
   dplyr::mutate(Brand.Code = factor(Brand.Code, 
-                         levels = c('No Code', 'A','B','C','D'), 
+                         levels = c('A','B','C','D', 'No Code'), 
                          ordered = FALSE))
 ```
 
-```{r}
+### Correlation Plot
 
+```{r fig.height=10, fig.width=12, message=FALSE, warning=FALSE}
+numeric_values <- train 
+
+numeric_values<- numeric_values %>% 
+  select_if(is.numeric) %>% 
+  na.omit()
+
+#corr_data <- findCorrelation(cor(numeric_values), cutoff = 0.8)
+
+#numeric_values <- numeric_values[,-corr_data]
+
+train_cor <- cor(numeric_values)
+
+
+
+#findCorrelation(cor(numeric_values), cutoff = 0.9)
+
+
+corrplot(cor(numeric_values[,-findCorrelation(cor(numeric_values), 
+                                              cutoff = 0.9)]), tl.col = 'black')
 ```
-
-
-
 
 
 
