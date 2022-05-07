@@ -39,6 +39,9 @@ library(caret)
 library(car)
 library(forcats)
 library(RColorBrewer)
+library(randomForest)
+library(gbm)
+library(Cubist)
 ```
 
 ## Exploratory Data Analysis
@@ -237,6 +240,9 @@ eval_data <- preProc_train[-training_set,]
 
 ### Tree Based Models
 
+#### Pre-Process Training Data for Tree Based Models
+
+The training data is pre-processed differently for tree based models since they do not require the training data to be normalized.
 
 ```{r}
 set.seed(624)
@@ -262,10 +268,41 @@ training_set <- createDataPartition(preProc_train$PH, p=0.8, list=FALSE)
 
 train_data_rf <- preProc_train[training_set,]
 eval_data_rf <- preProc_train[-training_set,]
+
+train_rf_predictors <- train_data_rf[-c(26)]
+eval_rf_predictors <- eval_data_rf[-c(26)]
 ```
 
+#### Random Forest
+```{r}
+set.seed(624)
+#fit the model
+rf_model <- randomForest(train_rf_predictors, train_data_rf$PH, importance = TRUE, ntrees = 1000)
+rf_model
 
-## Evaluate & Select Models
+rfPred <- predict(rf_model, newdata = eval_rf_predictors)
+postResample(pred = rfPred, obs = eval_data_rf$PH)
+```
+
+#### Boosted Trees
+```{r}
+set.seed(624)
+gbm_model <- gbm.fit(train_rf_predictors, train_data_rf$PH, distribution = "gaussian")
+gbm_model
+gbmPred <- predict(gbm_model, newdata = eval_rf_predictors)
+postResample(pred = gbmPred, obs = eval_data_rf$PH)
+```
+
+#### Cubist
+```{r}
+set.seed(624)
+cube_model <- cubist(train_rf_predictors, train_data_rf$PH)
+cube_model
+cubePred <- predict(cube_model, newdata =  eval_rf_predictors)
+postResample(pred = cubePred, obs = eval_data_rf$PH)
+```
+
+##  Evaluate & Select Models
 
 ## Predict PH Values
 
