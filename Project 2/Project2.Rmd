@@ -95,7 +95,8 @@ Below is the distribution of the `Brand.Code` variable. The variable has 5 level
 ```{r}
 ggplot(train, aes(x=reorder(Brand.Code, Brand.Code, function(x)-length(x)))) +
 geom_bar() +  labs(x='Brand.Code')+
-labs(title= 'Brand.Code Distribution')
+labs(title= 'Brand.Code Distribution')+
+   theme_minimal()
 ```
 
 Next are the distributions for all the numeric variables.
@@ -146,8 +147,7 @@ train_cor <- cor(numeric_values)
 corrplot(train_cor, tl.col = 'black', col=brewer.pal(n=10, name="RdYlBu"))
 ```
 
-
-```{r}
+```{r eval=FALSE, include=FALSE}
 #The features identified to have high pair-wise correlations are as follow:
 #setdiff(colnames(train_cor), colnames(train_cor_filtered))
 ```
@@ -168,13 +168,20 @@ ggplot(ph_corr, aes(x=fct_reorder(factor(Predictor),V1), y = (V1))) +
     x="Predictors",
     y="Correlation Coefficient")+
     geom_text(aes(label = round(V1,2)), colour = "black", size = 3,
-              position = position_stack(vjust = 0.6))
+              position = position_stack(vjust = 0.6))+
+   theme_minimal()
 ```
 
+### Near-Zero Variance
 
+Un-informative variables are detected using the `nearZeroVar` function. There is one variable, `Hyd.Pressure1` with near-zero variance which will be removed from in the pre-processing stage.
 
+```{r}
+nzvU<- nearZeroVar(train, saveMetrics= TRUE)
+filter(nzv, nzv=="TRUE")
+```
 
-### Update Data Types
+### Update `Brand.Code`
 
 Next, the empty value in the `Brand.Code` variable is updated with the string "Unknown". Additionally, the variable is updated to an unordered factor type variable. 
 
@@ -190,7 +197,6 @@ train <- train %>%
 ```
 
 
-
 ## Build Models
 
 ### Pre-Process Training Data
@@ -198,10 +204,21 @@ train <- train %>%
 Pre-processing of the data is needed based on the distributions and missing values noted in the training data set. The training data for linear and non-linear needs to be normalized where as the data does not need normalization for random forest models.
 
 ```{r}
-#pre-process for linear and non-linear normailze distros, impute NAs, remove highly correlated vars
-preprocessed_data <- preProcess(train, method = c("knnImpute"))
-full_data <- predict(preprocessed_data, train)
-#create split for evaluation
+set.seed(624)
+
+#remove pH from the train dataset in order to only transform the predictors
+train_features <- train %>% 
+  dplyr::select(-c(PH))
+
+#remove nvz, correlated values, center and scale, apply BoxCox for normalization
+preProc <- preProcess(train_features, method=c("knnImpute","nzv","corr",
+                                               "center", "scale", "BoxCox"))
+
+#get the transformed features
+preProc_train <- predict(preProc, train_features)
+
+#add the PH response variable to the preProcessed train features
+preProc_train$PH <- train$PH 
 ```
 
 
