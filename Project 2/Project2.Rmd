@@ -177,7 +177,7 @@ ggplot(ph_corr, aes(x=fct_reorder(factor(Predictor),V1), y = (V1))) +
 Un-informative variables are detected using the `nearZeroVar` function. There is one variable, `Hyd.Pressure1` with near-zero variance which will be removed from in the pre-processing stage.
 
 ```{r}
-nzvU<- nearZeroVar(train, saveMetrics= TRUE)
+nzv<- nearZeroVar(train, saveMetrics= TRUE)
 filter(nzv, nzv=="TRUE")
 ```
 
@@ -206,11 +206,11 @@ Pre-processing of the data is needed based on the distributions and missing valu
 ```{r}
 set.seed(624)
 
-#remove pH from the train dataset in order to only transform the predictors
+#remove pH from the train data set in order to only transform the predictors
 train_features <- train %>% 
   dplyr::select(-c(PH))
 
-#remove nvz, correlated values, center and scale, apply BoxCox for normalization
+#remove nzv, correlated values, center and scale, apply BoxCox for normalization
 preProc <- preProcess(train_features, method=c("knnImpute","nzv","corr",
                                                "center", "scale", "BoxCox"))
 
@@ -219,6 +219,15 @@ preProc_train <- predict(preProc, train_features)
 
 #add the PH response variable to the preProcessed train features
 preProc_train$PH <- train$PH 
+
+#there are 4 NAs in the PH response variable, those need to be removed
+preProc_train <- na.omit(preProc_train)
+
+#partition data for evaluation
+training_set <- createDataPartition(preProc_train$PH, p=0.8, list=FALSE)
+
+train_data <- preProc_train[training_set,]
+eval_data <- preProc_train[-training_set,]
 ```
 
 
@@ -230,8 +239,29 @@ preProc_train$PH <- train$PH
 
 
 ```{r}
+set.seed(624)
 
+#remove pH from the train data set in order to only transform the predictors
+train_features <- train %>% 
+  dplyr::select(-c(PH))
 
+#remove nzv, correlated values
+preProc <- preProcess(train_features, method=c("knnImpute","nzv","corr"))
+
+#get the transformed features
+preProc_train <- predict(preProc, train_features)
+
+#add the PH response variable to the preProcessed train features
+preProc_train$PH <- train$PH 
+
+#there are 4 NAs in the PH response variable, those need to be removed
+preProc_train <- na.omit(preProc_train)
+
+#partition data for evaluation
+training_set <- createDataPartition(preProc_train$PH, p=0.8, list=FALSE)
+
+train_data_rf <- preProc_train[training_set,]
+eval_data_rf <- preProc_train[-training_set,]
 ```
 
 
