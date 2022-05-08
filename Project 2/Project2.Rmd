@@ -42,6 +42,7 @@ library(RColorBrewer)
 library(randomForest)
 library(gbm)
 library(Cubist)
+library(kableExtra)
 ```
 
 ## Exploratory Data Analysis
@@ -234,7 +235,77 @@ eval_data <- preProc_train[-training_set,]
 ```
 
 
-### Linear Models
+## Linear Models
+
+We consider these linear regression models: **multi-linear regression**, **partial least squares**, **AIC optimized** . We utilize train() function for all three models, feeding the same datasets for X and Y, and specifying the proper model-building technique via the “method” variable.
+
+### Multi-linear regression
+
+```{r}
+#Remove PH from sets to feed models
+set.seed(222)
+y_train <- subset(train_data, select = -c(PH))
+y_test <- subset(eval_data, select = -c(PH))
+
+linear_model <- train(x= y_train, y= train_data$PH,
+                      method='lm',
+                      trControl=trainControl(method = "cv", number = 10))
+```
+
+**Prediction**
+
+We use the prediction() function in combination with postResample() to generate summary statistics for how our model performed on unseen, test data:
+
+```{r}
+lmPred <- predict(linear_model, newdata = y_test)
+lmResample <- postResample(pred=lmPred, obs = eval_data$PH)
+```
+
+### Partial Least Squares
+
+```{r}
+pls_model <- train(y_train, train_data$PH,
+                      method='pls',
+                      metric='Rsquared',
+                      tuneLength=10,
+                      trControl=trainControl(method = "cv",  number = 10))
+```
+
+**Prediction**
+
+```{r}
+set.seed(222)
+plsPred <-predict(pls_model, newdata=y_test)
+plsReSample <- postResample(pred=plsPred, obs = eval_data$PH)
+```
+
+### AIC optimized
+
+```{r}
+initial <- lm(PH ~ . , data = train_data)
+
+AIC_model <- stepAIC(initial, direction = "both")
+```
+
+**Prediction**
+
+```{r}
+AIC_Pred <-predict(AIC_model, newdata=y_test)
+aicResample <- postResample(pred=AIC_Pred, obs=eval_data$PH)
+```
+
+We need to verify model performance and identify the strongest performing model in our multi-linear regression subset. 
+
+```{r}
+display <- rbind(
+"Linear Regression" = lmResample,
+"Stepwise AIC" = aicResample,
+"Partial Least Squares" = plsReSample
+)
+
+display %>% kable() %>% kable_paper()
+```
+
 
 ### Non-linear Models
 
