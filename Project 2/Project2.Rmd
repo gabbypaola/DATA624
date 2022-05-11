@@ -1,5 +1,6 @@
 ---
 title: "DATA 624 | Predictive Analytics"
+subtitle: "Project 2"
 author: "Gehad Gad, Karim Hammoud, Gabriella Martinez"
 date: "`r Sys.Date()`"
 output:
@@ -12,8 +13,8 @@ output:
         code_folding: hide
 ---
 
-# Project 2
-## Instructions
+
+# Instructions
 
 This is role playing.  I am your new boss.  I am in charge of production at ABC Beverage and you are a team of data scientists reporting to me.  My leadership has told me that new regulations are requiring us to understand our manufacturing process, the **predictive factors and be able to report to them our predictive model of PH.**  
 
@@ -45,9 +46,9 @@ library(Cubist)
 library(kableExtra)
 ```
 
-## Exploratory Data Analysis
+# Exploratory Data Analysis
 
-### Load & Review Train Data
+## Load & Review Train Data
 ```{r message=FALSE, warning=FALSE}
 #load data
 train <- read.csv("TrainingData.csv")
@@ -63,7 +64,7 @@ From the above it is noted that the `train` data set:
 - There are predictors with varying ranges for example: `Mnf. Flow` -100.20 to 229.40, `Carb.Flow` 26 to 5104, and `PSC` 0.002 to 0.270
 - NAs detected in the first few observations
 
-### Missing Values
+## Missing Values
 ```{r message=FALSE, warning=FALSE, results=F}
 #NA counts by column
 #sapply(train, function(x) sum(is.na(x)))
@@ -80,7 +81,7 @@ Based on the above:
 - 3 variables appear to contain all their values (no NAs present) `Brand.Code`, `Pressure.Vacuum`, `Air.Pressurer`  
 
 
-### Distributions
+## Distributions
 
 Next, the distributions of numerical response variable `PH`, the categorical predictor variable `Brand.Code` and remaining numerical predictor variables. 
 
@@ -133,7 +134,7 @@ From the above, variables in the training data set exhibit the follow skews in d
 - right-skew: `Pressure.Setpoint`, `Fill.Pressure`, `Hyd.Pressure1`, `Temperature`, `Carb.Volume`, `PSC`, `PSC.CO2`, `PSC.Fill`, `Balling`, `Density`, `Hyd.Pressure4`, `Air.Pressurer`, `Alch.Rel`, `Carb.Rel`, `Oxygen.Filler`, `Balling.Lvl`, `Pressure.Vacuum`
 
 
-### Variable Correlations
+## Variable Correlations
 
 The relationship between the variables are reviewed using a correlation plot in order to detect multicolliniarity within the training data set. Based on the below, it looks like multicolliniarity is an issue provided the correlations between a lot of the predictor variables.
 
@@ -176,7 +177,7 @@ ggplot(ph_corr, aes(x=fct_reorder(factor(Predictor),V1), y = (V1))) +
    theme_minimal()
 ```
 
-### Near-Zero Variance
+## Near-Zero Variance
 
 Un-informative variables are detected using the `nearZeroVar` function. There is one variable, `Hyd.Pressure1` with near-zero variance which will be removed from in the pre-processing stage.
 
@@ -185,7 +186,7 @@ nzv<- nearZeroVar(train, saveMetrics= TRUE)
 filter(nzv, nzv=="TRUE")
 ```
 
-### Update `Brand.Code`
+## Update `Brand.Code`
 
 Next, the empty value in the `Brand.Code` variable is updated with the string "Unknown". Additionally, the variable is updated to an unordered factor type variable. 
 
@@ -201,9 +202,9 @@ train <- train %>%
 ```
 
 
-## Build Models
+# Build Models
 
-### Pre-Process Training Data
+**Pre-Process Training Data**
 
 Pre-processing of the data is needed based on the distributions and missing values noted in the training data set. The training data for linear and non-linear needs to be normalized where as the data does not need normalization for random forest models.
 
@@ -302,16 +303,15 @@ display <- rbind(
 "Stepwise AIC" = aicResample,
 "Partial Least Squares" = plsReSample
 )
-
 display %>% kable() %>% kable_paper()
 ```
 
 
-### Non-linear Models
+## Non-linear Models
 
-### Tree Based Models
+## Tree Based Models
 
-#### Pre-Process Training Data for Tree Based Models
+**Pre-Process Training Data for Tree Based Models**
 
 The training data is pre-processed differently for tree based models since they do not require the training data to be normalized.
 
@@ -344,7 +344,7 @@ train_rf_predictors <- train_data_rf[-c(26)]
 eval_rf_predictors <- eval_data_rf[-c(26)]
 ```
 
-#### Random Forest
+### Random Forest
 ```{r}
 set.seed(624)
 #fit the model
@@ -352,32 +352,44 @@ rf_model <- randomForest(train_rf_predictors, train_data_rf$PH, importance = TRU
 rf_model
 
 rfPred <- predict(rf_model, newdata = eval_rf_predictors)
-postResample(pred = rfPred, obs = eval_data_rf$PH)
+rf_metrics <- postResample(pred = rfPred, obs = eval_data_rf$PH)
+rf_metrics
 ```
 
-#### Boosted Trees
+### Boosted Trees
 ```{r}
 set.seed(624)
 gbm_model <- gbm.fit(train_rf_predictors, train_data_rf$PH, distribution = "gaussian")
 gbm_model
 gbmPred <- predict(gbm_model, newdata = eval_rf_predictors)
-postResample(pred = gbmPred, obs = eval_data_rf$PH)
+gbm_metrics <- postResample(pred = gbmPred, obs = eval_data_rf$PH)
+gbm_metrics
 ```
 
-#### Cubist
+### Cubist
 ```{r}
 set.seed(624)
 cube_model <- cubist(train_rf_predictors, train_data_rf$PH)
 cube_model
 cubePred <- predict(cube_model, newdata =  eval_rf_predictors)
-postResample(pred = cubePred, obs = eval_data_rf$PH)
+cube_metrics <- postResample(pred = cubePred, obs = eval_data_rf$PH)
+cube_metrics
 ```
 
-##  Evaluate & Select Models
+```{r}
+display <- rbind(
+"Random Forest" = rf_metrics,
+"Boosted Trees" = gbm_metrics,
+"Cubist" = cube_metrics
+)
+display %>% kable() %>% kable_paper()
+```
 
-## Predict PH Values
+#  Evaluate & Select Models
 
-### Load and Review Test Data
+# Predict PH Values
+
+## Load and Review Test Data
 ```{r message=FALSE, warning=FALSE}
 #load test data
 test <- read.csv("TestData.csv")
@@ -399,9 +411,9 @@ print(dfSummary(test), file = '~/test_summary.html')
 ```
 [`test` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/test_summary.html)
 
-### Generate Predictions
+## Generate Predictions
 
-### Generate Excel file
+## Generate Excel file
 
 ```{r}
 #write_excel_csv(name_of_datafram, "name_of_csv_file.csv")
