@@ -44,6 +44,7 @@ library(randomForest)
 library(gbm)
 library(Cubist)
 library(kableExtra)
+library(e1071)
 ```
 
 # Exploratory Data Analysis
@@ -204,7 +205,7 @@ train <- train %>%
 
 # Build Models
 
-**Pre-Process Training Data**
+**Pre-Process Training Data for linear and non-linear models**
 
 Pre-processing of the data is needed based on the distributions and missing values noted in the training data set. The training data for linear and non-linear needs to be normalized where as the data does not need normalization for random forest models.
 
@@ -355,6 +356,112 @@ rfPred <- predict(rf_model, newdata = eval_rf_predictors)
 rf_metrics <- postResample(pred = rfPred, obs = eval_data_rf$PH)
 rf_metrics
 ```
+### Tuned Random Forest
+```{r}
+set.seed(624)
+
+trControl <- trainControl(method = "cv",
+    search = "grid")
+
+rf_default <- train(PH~.,
+    data = train_data_rf,
+    method = "rf",
+    trControl = trControl)
+# Print the results
+print(rf_default)
+```
+
+```{r}
+prediction_default <-predict(rf_default, eval_data_rf)
+postResample(pred = prediction_default, obs = eval_data_rf$PH)
+```
+
+
+```{r}
+#search best mtry
+set.seed(1234)
+tuneGrid <- expand.grid(.mtry = c(25:35))
+rf_mtry <- train(PH~.,
+    data = train_data_rf,
+    method = "rf",
+    tuneGrid = tuneGrid,
+    trControl = trControl,
+    importance = TRUE,
+    ntree = 300)
+print(rf_mtry)
+```
+
+
+```{r}
+best_mtry <- rf_mtry$bestTune$mtry 
+best_mtry
+```
+
+
+```{r}
+#best maxnodes
+# 5:30: lowest mean RMSE=30; 25:45 lowest mean RMSE = 45
+store_maxnode <- list()
+tuneGrid <- expand.grid(.mtry = best_mtry)
+for (maxnodes in c(25:45)) {
+    set.seed(1234)
+    rf_maxnode <- train(PH~.,
+    data = train_data_rf,
+        method = "rf",
+        tuneGrid = tuneGrid,
+        trControl = trControl,
+        importance = TRUE,
+        maxnodes = maxnodes,
+        ntree = 300)
+    key <- toString(maxnodes)
+    store_maxnode[[key]] <- rf_maxnode
+}
+results_node <- resamples(store_maxnode)
+summary(results_node)
+
+```
+
+
+
+```{r}
+#best ntrees
+store_maxtrees <- list()
+for (ntree in c(250, 300, 350, 400, 450, 500, 550, 600, 800, 1000, 2000)) {
+    set.seed(5678)
+    rf_maxtrees <- train(PH~.,
+    data = train_data_rf,
+        method = "rf",
+        tuneGrid = tuneGrid,
+        trControl = trControl,
+        importance = TRUE,
+        maxnodes = 50,
+        ntree = ntree)
+    key <- toString(ntree)
+    store_maxtrees[[key]] <- rf_maxtrees
+}
+results_tree <- resamples(store_maxtrees)
+summary(results_tree)
+
+#2000 trees
+```
+
+```{r}
+#train rf model with the tuning parameters
+fit_rf <- train(PH~.,
+    data = train_data_rf,
+    method = "rf",
+    tuneGrid = tuneGrid,
+    trControl = trControl,
+    importance = TRUE,
+    ntree = 2000,
+    maxnodes = 45)
+```
+
+```{r}
+prediction <-predict(fit_rf, eval_data_rf)
+postResample(pred = prediction, obs = eval_data_rf$PH)
+```
+
 
 ### Boosted Trees
 ```{r}
