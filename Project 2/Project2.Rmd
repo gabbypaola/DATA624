@@ -308,7 +308,148 @@ display %>% kable() %>% kable_paper()
 ```
 
 
-## Non-linear Models
+## Non-linear Models - Karim
+
+Building non-linear models. We will try k-nearest neighbors (KNN), support vector machines (SVM), multivariate adaptive regression splines (MARS), and neural networks. These models are not based on simple linear combinations of the predictors.
+
+K-Nearest Neighbors simply predicts a new sample using the K-closest samples from the training set. The predicted response for the new sample is then the mean of the K neighbors’ responses. Predictors with the largest scales will contribute most to the distance between samples so centering and scaling the data during pre-processing is important.
+
+```{r}
+knnModel <- train(PH~., data = train_data,
+method = "knn",
+preProc = c("center", "scale"), 
+tuneLength = 10)
+
+
+```
+
+Support Vector Machines follow the framework of robust regression where we seek to minimize the effect of outliers on the regression equations. We find parameter estimates that minimize SSE by not squaring the residuals when they are very large. In addition samples that the model fits well have no effect on the regression equation. A threshold is set using resampling and a kernel function which specifies the relationship between predictors and outcome so that only poorly predicted points called support vectors are used to fit the line. The radial kernel we are using has an additional parameter which impacts the smoothness of the upper and lower boundary.
+
+```{r}
+tc <- trainControl(method = "cv",
+                           number = 5,
+                           classProbs = T)
+
+
+svmModel <- train(PH~., data = train_data,
+                    method = "svmRadial",
+                    preProcess = c("BoxCox","center", "scale"),
+                    trControl = tc,
+                    tuneLength = 9)
+```
+
+MARS uses surrogate features instead of the original predictors. However, whereas PLS and neural networks are based on linear combinations of the predictors, MARS creates two contrasted versions of a predictor to enter the model. MARS features breaks the predictor into two groups, a “hinge” function of the original based on a cut point that achieves the smallest error, and models linear relationships between the predictor and the outcome in each group. The new features are added to a basic linear regression model to estimate the slopes and intercepts.
+
+```{r}
+
+marsGrid <- expand.grid(.degree = 1:2, .nprune = 2:38)
+
+mars <- train(PH~., data = train_data,
+                   method = "earth",
+                   tuneGrid = marsGrid,
+                   trControl = trainControl(method = "cv"))
+```
+
+
+Now lets build a matrix for the three different  non linear models 
+
+```{r}
+knnModel_pred <- knnModel %>% predict(eval_data)
+# Model performance metrics
+knn_Accuracy <- data.frame(
+  Model = "k-Nearest Neighbors",
+  RMSE = caret::RMSE(knnModel_pred,eval_data$PH),
+  Rsquare = caret::R2(knnModel_pred,eval_data$PH))
+
+
+pred_svm <- svmModel %>% predict(eval_data)
+# Model SVM performance metrics
+SMV_Acc <- data.frame(
+  Model = "Support Vector Machine",
+  RMSE = caret::RMSE(pred_svm, eval_data$PH),
+  Rsquare = caret::R2(pred_svm, eval_data$PH)
+)
+#summary(marsTuned)
+# Make MARS predictions
+pred_mars <- mars %>% predict(eval_data)
+# Model MARS performance metrics
+MARS_Acc <- data.frame(
+  Model = "MARS Tuned",
+  RMSE = caret::RMSE(pred_mars, eval_data$PH),
+  Rsquare = caret::R2(pred_mars, eval_data$PH)
+)
+names(MARS_Acc)[names(MARS_Acc) == 'y'] <- "Rsquare"
+rbind(knn_Accuracy,SMV_Acc,MARS_Acc)
+```
+
+Now I will plot the Observed Vs. Predicted  - Non - Linar Models with Reduced Predictor Set.
+
+```{r}
+par(mar = c(4, 4, 4, 4))
+par(mfrow=c(2,2))
+plot(knnModel_pred, eval_data$PH, ylab="Observed", col = "red")
+abline(0, 1, lwd=2)
+plot(pred_svm, eval_data$PH, ylab="Observed", col = "dark green")
+abline(0, 1, lwd=2)
+plot(pred_mars, eval_data$PH, ylab="Observed", col = "blue")
+abline(0, 1, lwd=2)
+mtext("Observed Vs. Predicted  - Non - Linar Models with Reduced Predictor Set", side = 3, line = -2, outer = TRUE)
+```
+Neural networks, like partial least squares, the outcome is modeled by an intermediary set of unobserved variables. These hidden units are linear combinations of the original predictors, but, unlike PLS models, they are not estimated in a hierarchical fashion. There are no constraints that help define these linear combinations. Each unit must then be related to the outcome using another linear combination connecting the hidden units. Treating this model as a nonlinear regression model, the parameters are usually optimized using the back-propagation algorithm to minimize the sum of the squared residuals.
+
+```{r}
+NNModel <- avNNet(PH~., data = train_data,
+                   size = 5, 
+                   decay = 0.01,
+                   linout = TRUE, 
+                   trace = FALSE,
+                   maxit = 500)
+pred_NNModel <- NNModel %>% predict(eval_data)
+
+# Model MARS performance metrics
+
+predictions_NNModel_1_Acc <- data.frame(
+  Model = "Neural Network",
+  RMSE = caret::RMSE(pred_NNModel, eval_data$PH),
+  Rsquare = caret::R2(pred_NNModel, eval_data$PH)
+)
+
+```
+
+In the optimal nonlinear regression models I can see SVM has the best predictors with the best R squared score, now I will check the most important variabels in SVB by checking the overall imprtant using the function varImp
+
+
+```{r}
+varImp(svmModel, 10)
+```
+
+
+The top predictors in our best performing non-linear model with (Support Vector Machine (SVM))
+
+Explore the relationships between the top predictors and the response for the predictors that are unique to the optimal nonlinear regression model. 
+
+
+```{r}
+ggplot(train_data, aes(Oxygen.Filler, PH)) +
+  geom_point()
+```
+
+
+```{r}
+ggplot(train_data, aes(Mnf.Flow	, PH)) +
+  geom_point()
+```
+```{r}
+ggplot(train_data, aes(Bowl.Setpoint	, PH)) +
+  geom_point()
+```
+
+Checking the top predictors in SVB as the below overall:
+
+Oxygen.Filler 100 has positive correlation
+Mnf.Flow 62 has negative correlation
+Bowl.Setpoint 52 has positive correlation
+
 
 ## Tree Based Models
 
