@@ -321,7 +321,7 @@ method = "knn",
 preProc = c("center", "scale"), 
 tuneLength = 10)
 
-
+knnModel
 ```
 
 
@@ -339,6 +339,8 @@ svmModel <- train(PH~., data = train_data,
                     preProcess = c("BoxCox","center", "scale"),
                     trControl = tc,
                     tuneLength = 9)
+
+svmModel
 ```
 
 ### MARS
@@ -352,6 +354,8 @@ mars <- train(PH~., data = train_data,
                    method = "earth",
                    tuneGrid = marsGrid,
                    trControl = trainControl(method = "cv"))
+
+mars
 ```
 
 
@@ -359,6 +363,7 @@ Now lets build a matrix for the three different  non linear models
 
 ```{r}
 knnModel_pred <- knnModel %>% predict(eval_data)
+
 # Model performance metrics
 knn_Accuracy <- data.frame(
   Model = "k-Nearest Neighbors",
@@ -410,6 +415,10 @@ NNModel <- avNNet(PH~., data = train_data,
                    linout = TRUE, 
                    trace = FALSE,
                    maxit = 500)
+
+NNModel
+
+
 pred_NNModel <- NNModel %>% predict(eval_data)
 
 # Model MARS performance metrics
@@ -419,7 +428,7 @@ predictions_NNModel_1_Acc <- data.frame(
   RMSE = caret::RMSE(pred_NNModel, eval_data$PH),
   Rsquare = caret::R2(pred_NNModel, eval_data$PH)
 )
-
+predictions_NNModel_1_Acc
 ```
 
 ### Select SVM as best nonlinear regression models
