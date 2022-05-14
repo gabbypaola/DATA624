@@ -106,6 +106,7 @@ labs(title= 'Brand.Code Distribution')+
 ```
 
 Next are the distributions for all the numeric variables.
+
 ```{r message=FALSE, warning=FALSE}
 DataExplorer::plot_histogram(train, nrow = 3L, ncol = 4L)
 ```
@@ -128,11 +129,11 @@ dfstats$leftamount <- round(dfstats$Median- dfstats$Mean , 4)
 
 From the above, variables in the training data set exhibit the follow skews in distribution:
 
-- normal:  `Carb.Pressure`, `Carb.Temp`, `Fill.Ounces`, `PC.Volume`, `PH` (response variable)
+- Relatively Normal Distributions:  `Carb.Pressure`, `Carb.Temp`, `Fill.Ounces`, `PC.Volume`, `PH` (response variable)
 
-- left-skew:  `Carb.Flow`, `Filler.Speed`, `Mnf.Flow`, `MFR`, `Bowl.Setpoint`, `Filler.Level`, `Hyd.Pressure2`, `Hyd.Pressure3`, `Usage.cont`, `Carb.Pressure1`, `Filler.Speed`
+- Left-skew Distributions:  `Carb.Flow`, `Filler.Speed`, `Mnf.Flow`, `MFR`, `Bowl.Setpoint`, `Filler.Level`, `Hyd.Pressure2`, `Hyd.Pressure3`, `Usage.cont`, `Carb.Pressure1`, `Filler.Speed`
 
-- right-skew: `Pressure.Setpoint`, `Fill.Pressure`, `Hyd.Pressure1`, `Temperature`, `Carb.Volume`, `PSC`, `PSC.CO2`, `PSC.Fill`, `Balling`, `Density`, `Hyd.Pressure4`, `Air.Pressurer`, `Alch.Rel`, `Carb.Rel`, `Oxygen.Filler`, `Balling.Lvl`, `Pressure.Vacuum`
+- Right-skew Distributions: `Pressure.Setpoint`, `Fill.Pressure`, `Hyd.Pressure1`, `Temperature`, `Carb.Volume`, `PSC`, `PSC.CO2`, `PSC.Fill`, `Balling`, `Density`, `Hyd.Pressure4`, `Air.Pressurer`, `Alch.Rel`, `Carb.Rel`, `Oxygen.Filler`, `Balling.Lvl`, `Pressure.Vacuum`
 
 
 ## Variable Correlations
@@ -239,7 +240,9 @@ eval_data <- preProc_train[-training_set,]
 
 ## Linear Models
 
-We consider these linear regression models: **multi-linear regression**, **partial least squares**, **AIC optimized** . We utilize train() function for all three models, feeding the same datasets for X and Y, and specifying the proper model-building technique via the “method” variable.
+We consider these linear regression models: **multi-linear regression**, **partial least squares**, **AIC optimized** . We utilize the `train()` function for all three models, feeding the same datasets for X and Y, and specifying the proper model-building technique via the “method” variable.
+
+Moreover, the `prediction()` function in combination with `postResample()`are used to generate summary statistics for how our model performed on the evaluation data:
 
 ### Multi-linear regression
 
@@ -249,61 +252,56 @@ set.seed(222)
 y_train <- subset(train_data, select = -c(PH))
 y_test <- subset(eval_data, select = -c(PH))
 
+#generate model
 linear_model <- train(x= y_train, y= train_data$PH,
                       method='lm',
                       trControl=trainControl(method = "cv", number = 10))
-```
 
-**Prediction**
-
-We use the prediction() function in combination with postResample() to generate summary statistics for how our model performed on unseen, test data:
-
-```{r}
+#evaluate model
 lmPred <- predict(linear_model, newdata = y_test)
 lmResample <- postResample(pred=lmPred, obs = eval_data$PH)
 ```
 
+
 ### Partial Least Squares
 
 ```{r}
+set.seed(222)
+#generate model
 pls_model <- train(y_train, train_data$PH,
                       method='pls',
                       metric='Rsquared',
                       tuneLength=10,
                       trControl=trainControl(method = "cv",  number = 10))
-```
-
-**Prediction**
-
-```{r}
-set.seed(222)
+#evaluate model metrics
 plsPred <-predict(pls_model, newdata=y_test)
 plsReSample <- postResample(pred=plsPred, obs = eval_data$PH)
 ```
 
+
 ### AIC optimized
 
 ```{r}
+set.seed(222)
+#generate model
 initial <- lm(PH ~ . , data = train_data)
 
 AIC_model <- stepAIC(initial, direction = "both")
-```
 
-**Prediction**
-
-```{r}
+#evaluate model metrics
 AIC_Pred <-predict(AIC_model, newdata=y_test)
 aicResample <- postResample(pred=AIC_Pred, obs=eval_data$PH)
 ```
 
+
+### Linear Model Metrics
+
 We need to verify model performance and identify the strongest performing model in our multi-linear regression subset. 
 
 ```{r}
-display <- rbind(
-"Linear Regression" = lmResample,
-"Stepwise AIC" = aicResample,
-"Partial Least Squares" = plsReSample
-)
+display <- rbind("Linear Regression" = lmResample,
+                 "Stepwise AIC" = aicResample,
+                 "Partial Least Squares" = plsReSample)
 display %>% kable() %>% kable_paper()
 ```
 
@@ -316,12 +314,17 @@ Building non-linear models. We will try k-nearest neighbors (KNN), support vecto
 K-Nearest Neighbors simply predicts a new sample using the K-closest samples from the training set. The predicted response for the new sample is then the mean of the K neighbors’ responses. Predictors with the largest scales will contribute most to the distance between samples so centering and scaling the data during pre-processing is important.
 
 ```{r}
-knnModel <- train(PH~., data = train_data,
-method = "knn",
-preProc = c("center", "scale"), 
-tuneLength = 10)
+set.seed(624)
+knnModel <- train(PH~., data = train_data, 
+                  method = "knn",
+                  preProc = c("center", "scale"), 
+                  tuneLength = 10)
 
 knnModel
+
+knnPred <- predict(knnModel, newdata = eval_data)
+knn_metrics <- postResample(pred = knnPred, obs = eval_data$PH)
+#knn_metrics
 ```
 
 
@@ -329,6 +332,7 @@ knnModel
 Support Vector Machines follow the framework of robust regression where we seek to minimize the effect of outliers on the regression equations. We find parameter estimates that minimize SSE by not squaring the residuals when they are very large. In addition samples that the model fits well have no effect on the regression equation. A threshold is set using resampling and a kernel function which specifies the relationship between predictors and outcome so that only poorly predicted points called support vectors are used to fit the line. The radial kernel we are using has an additional parameter which impacts the smoothness of the upper and lower boundary.
 
 ```{r}
+set.seed(624)
 tc <- trainControl(method = "cv",
                            number = 5,
                            classProbs = T)
@@ -341,13 +345,17 @@ svmModel <- train(PH~., data = train_data,
                     tuneLength = 9)
 
 svmModel
+
+svmPred <- predict(svmModel, newdata = eval_data)
+svm_metrics <- postResample(pred = svmPred, obs = eval_data$PH)
+#svm_metrics
 ```
 
 ### MARS
 MARS uses surrogate features instead of the original predictors. However, whereas PLS and neural networks are based on linear combinations of the predictors, MARS creates two contrasted versions of a predictor to enter the model. MARS features breaks the predictor into two groups, a “hinge” function of the original based on a cut point that achieves the smallest error, and models linear relationships between the predictor and the outcome in each group. The new features are added to a basic linear regression model to estimate the slopes and intercepts.
 
 ```{r}
-
+set.seed(624)
 marsGrid <- expand.grid(.degree = 1:2, .nprune = 2:38)
 
 mars <- train(PH~., data = train_data,
@@ -356,10 +364,13 @@ mars <- train(PH~., data = train_data,
                    trControl = trainControl(method = "cv"))
 
 mars
+
+marsPred <- predict(mars, newdata = eval_data)
+mars_metrics <- postResample(pred = marsPred, obs = eval_data$PH)
+#mars_metrics
 ```
 
-
-Now lets build a matrix for the three different  non linear models 
+Observed Vs. Predicted  - Non - Linear Models with Reduced Predictor Set.
 
 ```{r}
 knnModel_pred <- knnModel %>% predict(eval_data)
@@ -388,12 +399,9 @@ MARS_Acc <- data.frame(
   Rsquare = caret::R2(pred_mars, eval_data$PH)
 )
 names(MARS_Acc)[names(MARS_Acc) == 'y'] <- "Rsquare"
-rbind(knn_Accuracy,SMV_Acc,MARS_Acc)
-```
+#rbind(knn_Accuracy,SMV_Acc,MARS_Acc)
 
-Now I will plot the Observed Vs. Predicted  - Non - Linar Models with Reduced Predictor Set.
-
-```{r}
+### code for the plot
 par(mar = c(4, 4, 4, 4))
 par(mfrow=c(2,2))
 plot(knnModel_pred, eval_data$PH, ylab="Observed", col = "red")
@@ -402,13 +410,14 @@ plot(pred_svm, eval_data$PH, ylab="Observed", col = "dark green")
 abline(0, 1, lwd=2)
 plot(pred_mars, eval_data$PH, ylab="Observed", col = "blue")
 abline(0, 1, lwd=2)
-mtext("Observed Vs. Predicted  - Non - Linar Models with Reduced Predictor Set", side = 3, line = -2, outer = TRUE)
+mtext("Observed Vs. Predicted  - Non - Linear Models with Reduced Predictor Set", side = 3, line = -2, outer = TRUE)
 ```
 
-### Neural networks
+### Neural Networks
 Neural networks, like partial least squares, the outcome is modeled by an intermediary set of unobserved variables. These hidden units are linear combinations of the original predictors, but, unlike PLS models, they are not estimated in a hierarchical fashion. There are no constraints that help define these linear combinations. Each unit must then be related to the outcome using another linear combination connecting the hidden units. Treating this model as a nonlinear regression model, the parameters are usually optimized using the back-propagation algorithm to minimize the sum of the squared residuals.
 
 ```{r}
+set.seed(624)
 NNModel <- avNNet(PH~., data = train_data,
                    size = 5, 
                    decay = 0.01,
@@ -418,32 +427,34 @@ NNModel <- avNNet(PH~., data = train_data,
 
 NNModel
 
-
 pred_NNModel <- NNModel %>% predict(eval_data)
-
-# Model MARS performance metrics
-
-predictions_NNModel_1_Acc <- data.frame(
-  Model = "Neural Network",
-  RMSE = caret::RMSE(pred_NNModel, eval_data$PH),
-  Rsquare = caret::R2(pred_NNModel, eval_data$PH)
-)
-predictions_NNModel_1_Acc
+nn_metrics <- postResample(pred = pred_NNModel, obs = eval_data$PH)
+#nn_metrics
 ```
 
-### Select SVM as best nonlinear regression models
-In the optimal nonlinear regression models I can see SVM has the best predictors with the best R squared score, now I will check the most important variabels in SVB by checking the overall imprtant using the function varImp
+### Non-Linear Model Metrics
+```{r}
+rbind( "KNN" = knn_metrics,
+       "SVM" = svm_metrics,
+       "MARS" = mars_metrics,
+       "Neural Network" = nn_metrics) %>% 
+  kable() %>% kable_paper()
+```
+  
+  
+  
+#### Select Neural Network as best nonlinear regression models
+In the optimal nonlinear regression model was the Neural model with one of the lowest RMSE and higher R-squared. Below are the most important overall variables using the function `varImp`.
 
 
 ```{r}
-varImp(svmModel, 10)
+varImp(NNModel) %>% head(10)
 ```
 
 
-The top predictors in our best performing non-linear model with (Support Vector Machine (SVM))
+The top predictors in our best performing non-linear model with Neural Network.
 
 Explore the relationships between the top predictors and the response for the predictors that are unique to the optimal nonlinear regression model. 
-
 
 ```{r}
 ggplot(train_data, aes(Oxygen.Filler, PH)) +
@@ -460,7 +471,7 @@ ggplot(train_data, aes(Bowl.Setpoint	, PH)) +
   geom_point()
 ```
 
-Checking the top predictors in SVB as the below overall:
+Checking the top nonlinear predictors overall:
 
 Oxygen.Filler 100 has positive correlation
 Mnf.Flow 62 has negative correlation
@@ -480,7 +491,7 @@ set.seed(624)
 train_features <- train %>% 
   dplyr::select(-c(PH))
 
-#remove nzv, correlated values
+#remove nzv, correlated values, impute NAs
 preProc <- preProcess(train_features, method=c("knnImpute","nzv","corr"))
 
 #get the transformed features
@@ -503,179 +514,172 @@ eval_rf_predictors <- eval_data_rf[-c(26)]
 ```
 
 ### Random Forest
+
+Below a random forest regression model is created to predict the desired response variable, PH. Random forest is a Supervised Machine Learning Algorithm that is used widely in Classification and Regression problems. It builds decision trees on different samples and takes their majority vote for classification and average in case of regression.
+
 ```{r}
 set.seed(624)
 #fit the model
-rf_model <- randomForest(train_rf_predictors, train_data_rf$PH, importance = TRUE, ntrees = 1000)
+rf_model <- randomForest(train_rf_predictors, train_data_rf$PH, 
+                         importance = TRUE, ntrees = 1000)
 rf_model
 
 rfPred <- predict(rf_model, newdata = eval_rf_predictors)
 rf_metrics <- postResample(pred = rfPred, obs = eval_data_rf$PH)
-rf_metrics
+#rf_metrics
 ```
-### Tuned Random Forest
-```{r}
-set.seed(624)
-
-trControl <- trainControl(method = "cv",
-    search = "grid")
-
-rf_default <- train(PH~.,
-    data = train_data_rf,
-    method = "rf",
-    trControl = trControl)
-# Print the results
-print(rf_default)
-```
-
-```{r}
-prediction_default <-predict(rf_default, eval_data_rf)
-postResample(pred = prediction_default, obs = eval_data_rf$PH)
-```
-
-
-```{r}
-#search best mtry
-set.seed(1234)
-tuneGrid <- expand.grid(.mtry = c(25:35))
-rf_mtry <- train(PH~.,
-    data = train_data_rf,
-    method = "rf",
-    tuneGrid = tuneGrid,
-    trControl = trControl,
-    importance = TRUE,
-    ntree = 300)
-print(rf_mtry)
-```
-
-
-```{r}
-best_mtry <- rf_mtry$bestTune$mtry 
-best_mtry
-```
-
-
-```{r}
-#best maxnodes
-# 5:30: lowest mean RMSE=30; 25:45 lowest mean RMSE = 45
-store_maxnode <- list()
-tuneGrid <- expand.grid(.mtry = best_mtry)
-for (maxnodes in c(25:45)) {
-    set.seed(1234)
-    rf_maxnode <- train(PH~.,
-    data = train_data_rf,
-        method = "rf",
-        tuneGrid = tuneGrid,
-        trControl = trControl,
-        importance = TRUE,
-        maxnodes = maxnodes,
-        ntree = 300)
-    key <- toString(maxnodes)
-    store_maxnode[[key]] <- rf_maxnode
-}
-results_node <- resamples(store_maxnode)
-summary(results_node)
-
-```
-
-
-
-```{r}
-#best ntrees
-store_maxtrees <- list()
-for (ntree in c(250, 300, 350, 400, 450, 500, 550, 600, 800, 1000, 2000)) {
-    set.seed(5678)
-    rf_maxtrees <- train(PH~.,
-    data = train_data_rf,
-        method = "rf",
-        tuneGrid = tuneGrid,
-        trControl = trControl,
-        importance = TRUE,
-        maxnodes = 50,
-        ntree = ntree)
-    key <- toString(ntree)
-    store_maxtrees[[key]] <- rf_maxtrees
-}
-results_tree <- resamples(store_maxtrees)
-summary(results_tree)
-
-#2000 trees
-```
-
-```{r}
-#train rf model with the tuning parameters
-fit_rf <- train(PH~.,
-    data = train_data_rf,
-    method = "rf",
-    tuneGrid = tuneGrid,
-    trControl = trControl,
-    importance = TRUE,
-    ntree = 2000,
-    maxnodes = 45)
-```
-
-```{r}
-prediction <-predict(fit_rf, eval_data_rf)
-postResample(pred = prediction, obs = eval_data_rf$PH)
-```
-
 
 ### Boosted Trees
+
+Next, boosted trees are also used to model the data using the `train` function and defining the `method` parameter with `gbm` function to generate a prediction for the response variable PH. Boosted Trees are commonly used in regression. They are an ensemble method similar to bagging, however, instead of building multiple trees in parallel, they build tress sequentially. They use the previous tree to find errors and build a new tree by correcting the previous.
+
 ```{r}
 set.seed(624)
-gbm_model <- gbm.fit(train_rf_predictors, train_data_rf$PH, distribution = "gaussian")
-gbm_model
+gbm_model <- train(train_rf_predictors, train_data_rf$PH,
+    method = "gbm",
+    verbose = FALSE)
 gbmPred <- predict(gbm_model, newdata = eval_rf_predictors)
 gbm_metrics <- postResample(pred = gbmPred, obs = eval_data_rf$PH)
-gbm_metrics
+#gbm_metrics
 ```
 
 ### Cubist
 ```{r}
 set.seed(624)
-cube_model <- cubist(train_rf_predictors, train_data_rf$PH)
-cube_model
+cube_model <- train(train_rf_predictors, train_data_rf$PH,
+    method = "cubist",
+    verbose = FALSE)
 cubePred <- predict(cube_model, newdata =  eval_rf_predictors)
 cube_metrics <- postResample(pred = cubePred, obs = eval_data_rf$PH)
-cube_metrics
+#cube_metrics
 ```
 
+
+### Tree Based Model Metrics 
+
+Of the tree based models produced, the best performing model turned out to be the Cubist Model with an RMSE of 0.095, and an R-squared value of 0.685 indicating the percentage of the variance in the dependent variable, PH that the independent variables explain.
+
 ```{r}
-display <- rbind(
-"Random Forest" = rf_metrics,
-"Boosted Trees" = gbm_metrics,
-"Cubist" = cube_metrics
-)
-display %>% kable() %>% kable_paper()
+rbind("Random Forest" = rf_metrics,
+      "Boosted Trees" = gbm_metrics,
+      "Cubist" = cube_metrics) %>% 
+  kable() %>% kable_paper()
 ```
+
 
 #  Evaluate & Select Models
 
+Next, the metrics for each of the best performing Linear, Non-Linear, and Tree based models are complied to evaluate the performance of each and select the best model.
+
+```{r}
+all_metrics <- as.data.frame(rbind("Linear Regression" = lmResample,
+      "Neural Network" = nn_metrics,
+      "Cubist" = cube_metrics
+      ))
+
+all_metrics[order(all_metrics$RMSE),] %>% 
+  kable() %>% kable_paper()
+```
+
+Using the RMSE, we see the best performing model of those created is the Cubist model. Next we will proceed to evaluate the model and its important variables using `varImp`.
+
+```{r message=FALSE, warning=FALSE}
+plot(varImp(cube_model), top=10)
+```
+
+
 # Predict PH Values
 
+Next, using the Cubist model which was identified as the best performing model above, the PH values are predicted with the provided `test` data set.
+
 ## Load and Review Test Data
+
+First the data is loaded and reviewed. Using the `glimpse` function, we note the test data has a similar structure to that of the training data with `Brand.Code` appearing as `chr` type which will need to be checked for empty values and converted to unordered factor type. The PH response variable needs to be removed to run the model and will be subset from the features. 
+
 ```{r message=FALSE, warning=FALSE}
 #load test data
 test <- read.csv("TestData.csv")
+
 #review 
 glimpse(test)
-```
 
-```{r message=FALSE, warning=FALSE, results=F}
-#NAs in Test data set 
-#NA counts by column
-#sapply(test, function(x) sum(is.na(x)))
-VIM::aggr(test, numbers=T, sortVars=T, bars = FALSE, border= 'white',
-          cex.axis = .6,
-          ylab=c("Proportion of NAs", "Combinations"))
+#subset features from response
+test_features <- test %>% 
+  dplyr::select(-c(PH))
 ```
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 print(dfSummary(test), file = '~/test_summary.html')
 ```
-[`test` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/test_summary.html)
+Using the `summary` function in addition to the 
+[`test` Summary Statistics](https://htmlpreview.github.io/?https://github.com/gabbypaola/DATA624/blob/main/Project%202/test_summary.html), the distributions and NA's are identified. 
+
+```{r}
+summary(test)
+```
+
+Next, for easy of visualization the `Brand.Code` is plotted to identify the spread of the factors and identify the empty values that will need to be updated. The distributions for the remaining features will not be added to the visualization as the distributions for tree based models do not require normalization in the pre-processing stage.
+
+```{r}
+ggplot(test, aes(x=reorder(Brand.Code, Brand.Code, function(x)-length(x)))) +
+geom_bar() +  labs(x='Brand.Code')+
+labs(title= 'Brand.Code Distribution')+
+   theme_minimal()
+```
+
+Below the NAs in the test data set are visualized to easily see how many there are present. In the test data, about 10% of the missing values are within the `MFR` predictor variable.
+
+```{r message=FALSE, warning=FALSE, results=F}
+#NAs in Test data set 
+#NA counts by column
+#sapply(test, function(x) sum(is.na(x)))
+
+VIM::aggr(test_features, numbers=T, sortVars=T, bars = FALSE, border= 'white',
+          cex.axis = .6,
+          ylab=c("Proportion of NAs", "Combinations"))
+```
+  
+In order to run our model using the Cubist model, the test data needs to be cleaned in a similar fashion to that of train data used to run the model. To do so, the `Brand.Code` predictor needs to converted to a factor and add an "Unknown" level for the empty values in the variable. 
+
+```{r}
+#prep data- change Brand.Code to factor
+#add name to empty string
+test_features$Brand.Code[test_features$Brand.Code == ""] <- "Unknown"
+
+#convert variable type to factor
+test_features <- test_features %>% 
+  dplyr::mutate(Brand.Code = factor(Brand.Code, 
+                         levels = c('A','B','C','D', 'Unknown'), 
+                         ordered = FALSE))
+```
+
+The NAs identified in the predictors need to be imputed using the `preProcess` function. Additionally, near zero variance features and highly correlated variables were removed from the train data using the `preProcess` function. In order to ensure the same predictors in both the train and test data, the `preProcess` function will only be run with the `method` of "knnImpute," and variables eliminated from the train data will be identified and removed from the test data using `setdiff` and dplyr's `select` function, respectfully.
+
+```{r}
+set.seed(624)
+#impute NAs
+preProc_test <- preProcess(test_features, method=c("knnImpute"))
+
+#get the transformed features
+test_features <- predict(preProc_test, test_features)
+
+#identify the variables that need to be removed 
+setdiff(colnames(test_features),colnames(train_rf_predictors))
+
+#remove the variables identified above
+test_features <- test_features %>% 
+  dplyr::select(-c("Hyd.Pressure1","Hyd.Pressure3","Filler.Level",
+                   "Filler.Speed","Density","Balling","Balling.Lvl" ))
+```
+
 
 ## Generate Predictions
+
+```{r}
+predict <- round(predict(cube_model, newdata=test_features),2)
+```
+
+
 
 ## Generate Excel file
 
