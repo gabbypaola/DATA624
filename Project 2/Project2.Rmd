@@ -16,7 +16,7 @@ output:
 
 # Instructions
 
-This is role playing.  I am your new boss.  I am in charge of production at ABC Beverage and you are a team of data scientists reporting to me.  My leadership has told me that new regulations are requiring us to understand our manufacturing process, the **predictive factors and be able to report to them our predictive model of PH.**  
+This is role playing.  I am your new boss.  I am in charge of production at ABC Beverage and you are a team of data scientists reporting to me.  My leadership has told me that new regulations are requiring us to understand our manufacturing process, the predictive factors and be able to report to them our predictive model of pH.  
 
 Please use the historical data set I am providing. Build and report the factors in BOTH a technical and non-technical report.  I like to use Word and Excel.  Please provide your non-technical report in a business friendly readable document and your predictions in an Excel readable format. The technical report should show clearly the models you tested and how you selected your final approach.  
 
@@ -208,7 +208,7 @@ train <- train %>%
 
 **Pre-Process Training Data for linear and non-linear models**
 
-Pre-processing of the data is needed based on the distributions and missing values noted in the training data set. The training data for linear and non-linear needs to be normalized where as the data does not need normalization for random forest models.
+Pre-processing of the data is needed based on the distributions and missing values noted in the training data set. The training data for linear and non-linear needs to be normalized where as the data does not need normalization for tree-based models.
 
 ```{r message=FALSE, warning=FALSE}
 set.seed(624)
@@ -246,6 +246,10 @@ Moreover, the `prediction()` function in combination with `postResample()`are us
 
 ### Multi-linear regression
 
+First, a multi-linear regression is created to predict the pH response variable.  
+  
+Multiple linear regression is used to assess the relationship between two variables while taking into account the effect of other variables. By taking into account the effect of other variables, we cancel out the effect of these other variables in order to isolate and measure the relationship between the two variables of interest. This point is the main difference with simple linear regression.
+
 ```{r message=FALSE, warning=FALSE}
 #Remove PH from sets to feed models
 set.seed(222)
@@ -265,6 +269,10 @@ lmResample <- postResample(pred=lmPred, obs = eval_data$PH)
 
 ### Partial Least Squares
 
+Next PLS regression is performed on the data to predict PH. PLS was chosen given the multicolliniarity detected earlier in the exploratory data analysis phase.  
+  
+Partial least squares regression (PLS regression) is a statistical method that bears some relation to principal components regression; instead of finding hyperplanes of minimum variance between the response and independent variables, it finds a linear regression model by projecting the predicted variables and the observable variables to a new space.
+
 ```{r message=FALSE, warning=FALSE}
 set.seed(222)
 #generate model
@@ -279,13 +287,18 @@ plsReSample <- postResample(pred=plsPred, obs = eval_data$PH)
 ```
 
 
-### AIC optimized
+### Stepwise AIC optimized
 
+Lastly, for our linear models, a stepwise AIC model is run using `stepAIC`. The stepwise regression is performed by specifying the direction parameter with "both."
+
+Stepwise regression is a combination of both backward elimination and forward selection methods. Stepwise method is a modification of the forward selection approach and differs in that variables already in the model do not necessarily stay. As in forward selection, stepwise regression adds one variable to the model at a time. After a variable is added, however, stepwise regression checks all the variables already included again to see whether there is a need to delete any variable that does not provide an improvement to the model based on a certain criterion.
+  
 ```{r message=FALSE, warning=FALSE}
 set.seed(222)
 #generate model
 initial <- lm(PH ~ . , data = train_data)
-AIC_model <- stepAIC(initial, direction = "both")
+AIC_model <- stepAIC(initial, direction = "both",
+                     trace = 0)
 
 #evaluate model metrics
 AIC_Pred <-predict(AIC_model, newdata=y_test)
@@ -319,7 +332,7 @@ knnModel <- train(PH~., data = train_data,
                   preProc = c("center", "scale"), 
                   tuneLength = 10)
 
-knnModel
+#knnModel
 
 knnPred <- predict(knnModel, newdata = eval_data)
 knn_metrics <- postResample(pred = knnPred, obs = eval_data$PH)
@@ -343,7 +356,7 @@ svmModel <- train(PH~., data = train_data,
                     trControl = tc,
                     tuneLength = 9)
 
-svmModel
+#svmModel
 
 svmPred <- predict(svmModel, newdata = eval_data)
 svm_metrics <- postResample(pred = svmPred, obs = eval_data$PH)
@@ -362,7 +375,7 @@ mars <- train(PH~., data = train_data,
                    tuneGrid = marsGrid,
                    trControl = trainControl(method = "cv"))
 
-mars
+#mars
 
 marsPred <- predict(mars, newdata = eval_data)
 mars_metrics <- postResample(pred = marsPred, obs = eval_data$PH)
@@ -424,7 +437,7 @@ NNModel <- avNNet(PH~., data = train_data,
                    trace = FALSE,
                    maxit = 500)
 
-NNModel
+#NNModel
 
 pred_NNModel <- NNModel %>% predict(eval_data)
 nn_metrics <- postResample(pred = pred_NNModel, obs = eval_data$PH)
@@ -552,7 +565,7 @@ Finally for the last Tree Based Model, a Cubist model is run also using the `tra
 In Cubist models, a tree is grown where the terminal leaves contain linear regression models. These models are based on the predictors used in previous splits. Also, there are intermediate linear models at each step of the tree. A prediction is made using the linear regression model at the terminal node of the tree, but is “smoothed” by taking into account the prediction from the linear model in the previous node of the tree (which also occurs recursively up the tree). The tree is reduced to a set of rules, which initially are paths from the top of the tree to the bottom. Rules are eliminated via pruning and/or combined for simplification.
 
 ```{r message=FALSE, warning=FALSE}
-set.seed(624)
+set.seed(6)
 #fit model
 cube_model <- train(train_rf_predictors, train_data_rf$PH,
     method = "cubist",
