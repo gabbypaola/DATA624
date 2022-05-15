@@ -701,7 +701,8 @@ Next, the predictions for PH are generated using the `predict` function along wi
 ```{r message=FALSE, warning=FALSE}
 predict <- round(predict(cube_model, newdata=test_features),2)
 
-test_features$PH <- predict
+pH <- as.data.frame(predict)
+pH<- rename(pH, pH = predict)
 ```
 
 
@@ -710,7 +711,7 @@ test_features$PH <- predict
 Finally, the predicted PH values along with the predictor variables are exported to a CSV file using `write_excel_csv`.
 
 ```{r message=FALSE, warning=FALSE}
-#write_excel_csv(test_features, "Predictions.csv")
+write_excel_csv(pH, "Predictions.csv")
 ```
 
 
