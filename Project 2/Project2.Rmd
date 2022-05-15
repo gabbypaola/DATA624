@@ -13,6 +13,11 @@ output:
         code_folding: hide
 ---
 
+<center>
+
+![](C:\Users\gabri\OneDrive\Documents\CUNY SPS\DATA_624\DATA624\Project 2\ABC_Bev.png)
+
+</center>
 
 # Instructions
 
@@ -21,6 +26,9 @@ This is role playing.  I am your new boss.  I am in charge of production at ABC 
 Please use the historical data set I am providing. Build and report the factors in BOTH a technical and non-technical report.  I like to use Word and Excel.  Please provide your non-technical report in a business friendly readable document and your predictions in an Excel readable format. The technical report should show clearly the models you tested and how you selected your final approach.  
 
 Please submit both Rpubs links and .rmd files or other readable formats for technical and non-technical reports.  Also submit the excel file showing the prediction of your models for pH.
+
+
+
 ```{r message=FALSE, warning=FALSE}
 library(ggplot2)
 library(readr)
